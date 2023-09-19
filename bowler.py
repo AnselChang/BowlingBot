@@ -4,14 +4,14 @@ from enums import Attendance, Commitment, Date, Transport
 # a struct to cache bowler info
 class CacheBowlerProfile:
 
-    def __init__(self, bowlerID: int, firstName: str, lastName: str, email: str, discord: str, commitment: Commitment, defaultTransport: Transport, team: int | None):
+    def __init__(self, bowlerID: int, firstName: str, lastName: str, email: str, discord: str, commitment: Commitment, transport: Transport, team: int | None):
         self.bowlerID = bowlerID
         self.firstName = firstName
         self.lastName = lastName
         self.email = email
         self.discord = discord
         self.commitment = commitment
-        self.defaultTransport = defaultTransport
+        self.transport = transport
         self.team = team
 
 class CacheBowlerSession:
@@ -20,7 +20,6 @@ class CacheBowlerSession:
         self.bowlerID = bowlerID
         self.profile = profile
         self.date = date
-        self.currentTransport = currentTransport
         self.attendance = attendance
 
 
@@ -58,8 +57,8 @@ class Bowler:
         self.cur.execute("SELECT team FROM Bowlers WHERE bowlerID = ?", (self.bowlerID,))
         return self.cur.fetchone()[0]
 
-    def getDefaultTransport(self) -> Transport:
-        self.cur.execute("SELECT defaultTransport FROM Bowlers WHERE bowlerID = ?", (self.bowlerID,))
+    def getTransport(self) -> Transport:
+        self.cur.execute("SELECT transport FROM Bowlers WHERE bowlerID = ?", (self.bowlerID,))
         return Transport(self.cur.fetchone()[0])
     
     def setFullName(self, firstName: str, lastName: str):
@@ -80,8 +79,8 @@ class Bowler:
             return
         self.cur.execute("UPDATE Bowlers SET team = ? WHERE bowlerID = ?", (team, self.bowlerID))
 
-    def setDefaultTransport(self, defaultTransport: str):
-        self.cur.execute("UPDATE Bowlers SET defaultTransport = ? WHERE bowlerID = ?", (defaultTransport, self.bowlerID))
+    def setTransport(self, transport: str):
+        self.cur.execute("UPDATE Bowlers SET transport = ? WHERE bowlerID = ?", (transport, self.bowlerID))
 
     """
     THESE FUNCTIONS ARE FOR THE SESSION BOWLER. THEY USE THE SESSION BOWLER TABLE
@@ -118,20 +117,6 @@ class Bowler:
 
         return Attendance(self.cur.fetchone()[0])
     
-    def getCurrentTransport(self) -> Transport:
-            
-        if not self.isInSession():
-            return Transport.INVALID
-        
-        date = self._getActiveDate()
-
-        self.cur.execute(
-            "SELECT currentTransport FROM SessionBowlers WHERE bowlerID = ? AND date = ?",
-            (self.bowlerID, date)
-        )
-
-        return Transport(self.cur.fetchone()[0])
-    
     def setAttendance(self, attendance: Attendance):
 
         if not self.isInSession():
@@ -145,19 +130,6 @@ class Bowler:
             (attendance.value, self.bowlerID, date)
         )
 
-    def setCurrentTransport(self, currentTransport: Transport):
-
-        if not self.isInSession():
-            print("Bowler not in session")
-            return
-
-        date = self._getActiveDate()
-
-        self.cur.execute(
-            "UPDATE SessionBowlers SET currentTransport = ? WHERE bowlerID = ? AND date = ?",
-            (currentTransport.value, self.bowlerID, date)
-        )
-
     """
     Functions to cache bowler info
     """
@@ -168,18 +140,17 @@ class Bowler:
         email = self.getEmail()
         discord = self.getDiscord()
         commitment = self.getCommitment()
-        defaultTransport = self.getDefaultTransport()
+        transport = self.getTransport()
 
-        return CacheBowlerProfile(self.bowlerID, firstName, lastName, email, discord, commitment, defaultTransport)
+        return CacheBowlerProfile(self.bowlerID, firstName, lastName, email, discord, commitment, transport)
     
     def cacheSession(self) -> CacheBowlerSession:
 
         profile = self.cacheProfile()
         date = self._getActiveDate()
-        currentTransport = self.getCurrentTransport()
         attendance = self.getAttendance()
 
-        return CacheBowlerSession(self.bowlerID, profile, date, currentTransport, attendance)
+        return CacheBowlerSession(self.bowlerID, profile, date, attendance)
     
     def log(self):
 
@@ -188,8 +159,7 @@ class Bowler:
         print("Email:", self.getEmail())
         print("Discord:", self.getDiscord())
         print("Commitment:", self.getCommitment())
-        print("Default Transport:", self.getDefaultTransport())
+        print("Transport:", self.getTransport())
         print("Active Date:", self._getActiveDate())
         print("Attendance:", self.getAttendance())
-        print("Current Transport:", self.getCurrentTransport())
         print()

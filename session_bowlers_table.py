@@ -13,7 +13,6 @@ class SessionBowlersTable(SqlTable):
             sessionBowlerID INTEGER PRIMARY KEY AUTOINCREMENT,
             date TEXT REFERENCES Dates(date),
             bowlerID INTEGER REFERENCES Player(bowlerID),
-            currentTransport TEXT CHECK (currentTransport IN ('bus', 'self')),
             attendance TEXT CHECK (Attendance IN ('await', 'yes', 'no'))
         );
         """
@@ -21,15 +20,11 @@ class SessionBowlersTable(SqlTable):
         super().__init__(cur, "SessionBowlers", CREATE_SESSION_BOWLER)
 
     def addBowler(self, bowler: Bowler):
-
-        # current transport is set to default transport
         # attendance is set to await
 
-        currentTransport = bowler.getDefaultTransport()
-
         self.cur.execute(
-            f"INSERT INTO {self.tableName} (date, bowlerID, currentTransport, attendance) VALUES (?, ?, ?, ?)",
-            (bowler._getActiveDate(), bowler.bowlerID, currentTransport.value, "await")
+            f"INSERT INTO {self.tableName} (date, bowlerID, attendance) VALUES (?, ?, ?)",
+            (bowler._getActiveDate(), bowler.bowlerID, "await")
         )
 
         sessionBowlerID = self.cur.lastrowid

@@ -27,12 +27,6 @@ dates.createTable()
 session.deleteTable()
 session.createTable()
 
-john = bowlers.insert("John", "Doe", "email@com", "450748389001265186", Commitment.ROSTERED, 1)
-jane = bowlers.insert("Jane", "Doe", "email@com", "450748389001265186", Commitment.ROSTERED, 1)
-jim = bowlers.insert("Jim", "Doe", "email@com", "450748389001265186", Commitment.ROSTERED, 2)
-joe = bowlers.insert("Joe", "Doe", "email@com", "450748389001265186", Commitment.ROSTERED, 3)
-session.addBowler(john)
-
 
 MY_GUILD = discord.Object(id=1012052441757397062)
 
@@ -69,7 +63,7 @@ def generateProfileEmbed(bowler: Bowler):
         title=f"{bowler.getFullName()} ~ {bowler.getEmail()}",
         description=commit, color=0x852acf)
     
-    transport = "Bus" if bowler.getDefaultTransport() == Transport.BUS else "Other"
+    transport = "Bus" if bowler.getTransport() == Transport.BUS else "Other"
     embed.add_field(
         name="Transportation", value = transport, inline=False)
     
@@ -184,12 +178,37 @@ async def teams(interaction: discord.Interaction):
 
         for teammate in teammates:
             name = teammate.getFullName()
+            response += f"{name} <@{teammate.getDiscord()}>\n"
+
+        response += "\n"
+
+    response += "SUBSTITUTES:\n"
+    for bowler in bowlers.getSubs():
+        name = bowler.getFullName()
+        response += f"{name} <@{bowler.getDiscord()}>\n"
+    
+    allowed = discord.AllowedMentions.none()
+    await interaction.response.send_message(response, allowed_mentions = allowed)
+
+@client.tree.command()
+async def lineup(interaction: discord.Interaction):
+    
+    teams = bowlers.getRosterTeams()
+
+    response = ""
+    for number in teams:
+        teammates = teams[number]
+
+        response += f"TEAM {number}:\n"
+
+        for teammate in teammates:
+            name = teammate.getFullName()
             if not teammate.isInSession():
                 name = f"~~{name}~~"
 
             response += f"{name} <@{teammate.getDiscord()}>"
 
-            if teammate.getCurrentTransport() == Transport.SELF:
+            if teammate.getTransport() == Transport.SELF:
                 response += " (NOT BUS)"
             
             response += "\n"
@@ -198,22 +217,6 @@ async def teams(interaction: discord.Interaction):
     allowed = discord.AllowedMentions.none()
     await interaction.response.send_message(response, allowed_mentions = allowed)
 
-"""
-Show the current lineup for the active session
-"""
-@client.tree.command()
-async def lineup(interaction: discord.Interaction):
-
-    
-    date = dates.getActiveDate()
-
-    response = None
-    embed=discord.Embed(title=f"Lineup for {date.value}", color=0x852acf)
-
-    for bowler in session.getAllSessionBowlers():
-        embed.add_field(name=bowler.getFullName(), value=bowler.getCommitment().value, inline=False)
-    
-    await interaction.response.send_message(embed=embed)
 
 # EXECUTES THE BOT WITH THE SPECIFIED TOKEN.
 client.run(passwords.TOKEN)
