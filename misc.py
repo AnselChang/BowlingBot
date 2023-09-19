@@ -13,7 +13,7 @@ class BowlerDisplayInfo:
 
         if absent:
             response += f"~~{self.fullName}~~\n"
-            return
+            return response
 
         response += f"{self.fullName} <@{self.discord}>"
 

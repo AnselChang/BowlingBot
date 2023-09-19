@@ -114,14 +114,14 @@ async def register(interaction: discord.Interaction, discord: discord.Member, fn
 
         await interaction.response.send_message("Profile registered.", embed=generateProfileEmbed(bowler))
     else:
-        await interaction.response.send_message("Profile already registered. Use /set commands to modify.", embed=generateProfileEmbed(bowler))
+        await interaction.response.send_message("Profile already registered. Use `/unregister` to unregister.")
 
 async def getBowler(interaction: discord.Interaction, discord: discord.Member) -> Bowler | None:
     discordID = interaction.user.id if discord is None else discord.id
     bowler = bowlers.getBowlerByDiscord(discordID)
 
     if bowler is None:
-        await interaction.response.send_message("No profile registered. Use /register to register.")
+        await interaction.response.send_message("No profile registered. Use `/register` to register.")
         return None
     return bowler
 
@@ -133,7 +133,7 @@ async def unregister(interaction: discord.Interaction, discord: Optional[discord
         return
 
     bowlers.removeBowler(bowler)
-    await interaction.response.send_message("Profile unregistered.")
+    await interaction.response.send_message("Profile unregistered. Use `/register` to register a new profile.")
 
 @client.tree.command()
 async def optin(interaction: discord.Interaction, discord: Optional[discord.Member]):
@@ -143,15 +143,15 @@ async def optin(interaction: discord.Interaction, discord: Optional[discord.Memb
         return
 
     if bowler.isInSession():
-        await interaction.response.send_message("You are already opted in. Use /optout to opt out.")
+        await interaction.response.send_message("You are already opted in. Use `/optout` to opt out.")
 
     else:
-        if bowler.getCommitment() == Commitment.SUB:
+        if bowler.getCommitment() == Commitment.ROSTERED:
             rou.removeBowler(bowler)
         else:
             soi.addBowler(bowler)
 
-        await interaction.response.send_message("You are now opted in. Use /optout to opt out.")
+        await interaction.response.send_message("You are now opted in. Use `/optout` to opt out.")
 
 @client.tree.command()
 async def optout(interaction: discord.Interaction, discord: Optional[discord.Member]):
@@ -161,7 +161,7 @@ async def optout(interaction: discord.Interaction, discord: Optional[discord.Mem
         return
 
     if not bowler.isInSession():
-        await interaction.response.send_message("You are already opted out. Use /optin to opt in.")
+        await interaction.response.send_message("You are already opted out. Use `/optin` to opt in.")
 
     else:
         if bowler.getCommitment() == Commitment.SUB:
@@ -169,7 +169,7 @@ async def optout(interaction: discord.Interaction, discord: Optional[discord.Mem
         else:
             rou.addBowler(bowler)
 
-        await interaction.response.send_message("You are now opted out. Use /optin to opt in.")
+        await interaction.response.send_message("You are now opted out. Use `/optin` to opt in.")
 
 
 @client.tree.command()
@@ -180,7 +180,7 @@ async def buson(interaction: discord.Interaction, discord: Optional[discord.Memb
         return
     
     if bowler.getTransport() == Transport.BUS:
-        await interaction.response.send_message("Your transportation mode is already set to bus. Use /busoff for self-transportation.")
+        await interaction.response.send_message("Your transportation mode is already set to bus. Use `/busoff` for self-transportation.")
     else:
         bowler.setTransport(Transport.BUS)
         await interaction.response.send_message("Your transportation mode has been set to bus.")
@@ -202,6 +202,30 @@ def formatCount(numRostered, numSub):
     total = numRostered + numSub
     return f"{total} bowlers ({numRostered} rostered, {numSub} subs)\n"
 
+@client.tree.command()
+@app_commands.describe(
+    team="Assign a rostered player to a new team, or a sub temporarily to a team. Use 0 to unassign a sub."
+)
+async def assign(interaction: discord.Interaction, discord: discord.Member, team: int):
+    bowler = await getBowler(interaction, discord)
+
+    # cast to None since discord command only allows ints
+    if team == 0:
+        team = None
+
+    if bowler.getCommitment() == Commitment.ROSTERED:
+        if team is None:
+            await interaction.response.send_message("Rostered players must have a team.")
+            return
+        bowlers.assignTeam(bowler, team)
+        await interaction.response.send_message(f"{bowler.getFullName()} successfully moved to team {team}. See `/teams` for the updated roster.")
+    else:
+        if not bowler.isInSession():
+            await interaction.response.send_message("Substitutes must be opted in this week to be assigned to a temporary team.")
+            return
+        soi.assignTeam(bowler, team)
+        await interaction.response.send_message(f"{bowler.getFullName()} successfully assigned to team {team} for this week. See `/lineup` for the updated lineup.")
+    
 """
 Show all the rostered teams
 """
@@ -236,7 +260,7 @@ async def teams(interaction: discord.Interaction):
 async def lineup(interaction: discord.Interaction):
 
     response = "**LINEUP FOR DATE**\n"
-    response += formatCount(bowlers.countRostered(), bowlers.countSubs())
+    response += formatCount(bowlers.countRostered() - rou.count(), soi.count())
     
     currentTeam = -1
 

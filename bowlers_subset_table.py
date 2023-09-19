@@ -70,6 +70,9 @@ class BowlersSubsetTable(SqlTable):
         bowlerID = results[0].bowlerID
         return Bowler(self.cur, bowlerID)
     
+    def assignTeam(self, bowler: Bowler, team: int | None):
+        self.cur.execute(f"UPDATE {self.tableName} SET team = ? WHERE bowlerID = ?", (team, bowler.bowlerID))
+    
     def log(self):
         print(f"{self.tableName}")
         for bowler in self.get():

@@ -85,7 +85,7 @@ class Bowler:
             return self.cur.fetchone()[0] == 0 # is not in ROU
         else:
             self.cur.execute(
-                "SELECT EXISTS(SELECT 1 FROM SUBBowlers WHERE bowlerID = ?);",
+                "SELECT EXISTS(SELECT 1 FROM SOIBowlers WHERE bowlerID = ?);",
                 (self.bowlerID,)
             )
             return self.cur.fetchone()[0] == 1 # is not in SOI
