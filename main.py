@@ -27,8 +27,10 @@ dates.createTable()
 session.deleteTable()
 session.createTable()
 
-john = bowlers.insert("John", "Doe", "email@com", "jd#1234", Commitment.ROSTERED)
-jane = bowlers.insert("Jane", "Doe", "email@com", "jd#1234", Commitment.SUB)
+john = bowlers.insert("John", "Doe", "email@com", "jd#1234", Commitment.ROSTERED, 1)
+jane = bowlers.insert("Jane", "Doe", "email@com", "jd#1234", Commitment.ROSTERED, 1)
+jim = bowlers.insert("Jim", "Doe", "email@com", "jd#1234", Commitment.ROSTERED, 2)
+joe = bowlers.insert("Joe", "Doe", "email@com", "jd#1234", Commitment.ROSTERED, 3)
 session.addBowler(john)
 
 
@@ -103,18 +105,23 @@ async def profile(interaction: discord.Interaction):
     fname='Your first name',
     lname='Your last name',
     email='Your WPI email',
-    commitment='Whether you are a rostered player or a substitute'
+    commitment='Whether you are a rostered player or a substitute',
+    team='For rostered players, your team number.'
 )
 @app_commands.choices(commitment=[
     app_commands.Choice(name="rostered", value="rostered"),
     app_commands.Choice(name="sub", value="sub"),
 ])
-async def register(interaction: discord.Interaction, fname: str, lname:str, email: str, commitment: str):
+async def register(interaction: discord.Interaction, fname: str, lname:str, email: str, commitment: str, team: int | None = None):
     discordID = interaction.user.id
     bowler = bowlers.getBowlerByDiscord(discordID)
 
     if bowler is None:
         bowler = bowlers.insert(fname, lname, email, discordID, Commitment(commitment))
+        if isinstance(bowler, str): # error message
+            await interaction.response.send_message(bowler)
+            return
+
         await interaction.response.send_message("Profile registered.", embed=generateProfileEmbed(bowler))
     else:
         await interaction.response.send_message("Profile already registered. Use /set commands to modify.", embed=generateProfileEmbed(bowler))
@@ -153,16 +160,39 @@ async def optout(interaction: discord.Interaction):
         await interaction.response.send_message("You are already opted out. Use /optin to opt in.", embed=generateProfileEmbed(bowler))
 
 
+"""
+Show all the rostered teams
+"""
 @client.tree.command()
-@app_commands.describe(
-    first_value='The first value you want to add something to',
-    second_value='The value you want to add to the first value',
-)
-async def add(interaction: discord.Interaction, first_value: int, second_value: int):
-    """Adds two numbers together."""
-    await interaction.response.send_message(f'{first_value} + {second_value} = {first_value + second_value}')
+async def teams(interaction: discord.Interaction):
+    
+    teams = bowlers.getRosterTeams()
 
+    response = ""
+    for team in teams:
+        response += f"**TEAM {team[0]}**\n"
+        for name in team[1].split(","):
+            response += f"{name}\n"
+        response += "\n"
+    
+    await interaction.response.send_message(response)
 
+"""
+Show the current lineup for the active session
+"""
+@client.tree.command()
+async def lineup(interaction: discord.Interaction):
+
+    
+    date = dates.getActiveDate()
+
+    response = None
+    embed=discord.Embed(title=f"Lineup for {date}", color=0x852acf)
+
+    for bowler in session.getAllSessionBowlers():
+        embed.add_field(name=bowler.getFullName(), value=bowler.getCommitment().value, inline=False)
+    
+    await interaction.response.send_message(embed=embed)
 
 # EXECUTES THE BOT WITH THE SPECIFIED TOKEN.
 client.run(passwords.TOKEN)

@@ -17,7 +17,7 @@ class SqlTable:
             print(f"Table {self.tableName} already exists")
             return
 
-        self.cur.execute(self.createCommand)
+        self.cur.executescript(self.createCommand)
 
     def deleteTable(self):
 

@@ -4,7 +4,7 @@ from enums import Attendance, Commitment, Date, Transport
 # a struct to cache bowler info
 class CacheBowlerProfile:
 
-    def __init__(self, bowlerID: int, firstName: str, lastName: str, email: str, discord: str, commitment: Commitment, defaultTransport: Transport):
+    def __init__(self, bowlerID: int, firstName: str, lastName: str, email: str, discord: str, commitment: Commitment, defaultTransport: Transport, team: int | None):
         self.bowlerID = bowlerID
         self.firstName = firstName
         self.lastName = lastName
@@ -12,6 +12,7 @@ class CacheBowlerProfile:
         self.discord = discord
         self.commitment = commitment
         self.defaultTransport = defaultTransport
+        self.team = team
 
 class CacheBowlerSession:
 
@@ -50,6 +51,13 @@ class Bowler:
         self.cur.execute("SELECT commitment FROM Bowlers WHERE bowlerID = ?", (self.bowlerID,))
         return Commitment(self.cur.fetchone()[0])
     
+    def getTeam(self) -> int | None:
+        if self.getCommitment() == Commitment.SUB:
+            print("Substitute has no team")
+            return None
+        self.cur.execute("SELECT team FROM Bowlers WHERE bowlerID = ?", (self.bowlerID,))
+        return self.cur.fetchone()[0]
+
     def getDefaultTransport(self) -> Transport:
         self.cur.execute("SELECT defaultTransport FROM Bowlers WHERE bowlerID = ?", (self.bowlerID,))
         return Transport(self.cur.fetchone()[0])
@@ -65,6 +73,12 @@ class Bowler:
 
     def setCommitment(self, commitment: Commitment):
         self.cur.execute("UPDATE Bowlers SET commitment = ? WHERE bowlerID = ?", (commitment.value, self.bowlerID))
+
+    def setTeam(self, team: int):
+        if self.getCommitment() == Commitment.SUB:
+            print("Cannot set team for substitute")
+            return
+        self.cur.execute("UPDATE Bowlers SET team = ? WHERE bowlerID = ?", (team, self.bowlerID))
 
     def setDefaultTransport(self, defaultTransport: str):
         self.cur.execute("UPDATE Bowlers SET defaultTransport = ? WHERE bowlerID = ?", (defaultTransport, self.bowlerID))
