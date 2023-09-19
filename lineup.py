@@ -64,10 +64,10 @@ class Lineup:
                 B.firstName || ' ' || B.lastName as fullName,
                 B.discord,
                 B.commitment,
-                B.transport,
+                B.transport
             FROM Bowlers B
             JOIN SOIBowlers S ON B.bowlerID = S.bowlerID
-            WHERE S.TEAM IS NULL
+            WHERE S.TEAM IS NULL;
         """
         cur.execute(OVERFLOW)
         self._overflowBowlerInfo = [self.parse(data) for data in cur.fetchall()]

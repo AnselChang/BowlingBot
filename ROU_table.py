@@ -9,7 +9,7 @@ class ROUTable(BowlersSubsetTable):
         ROUBowlers = """
         CREATE TABLE ROUBowlers (
             ROUBowlerID INTEGER PRIMARY KEY AUTOINCREMENT,
-            bowlerID INTEGER REFERENCES Player(bowlerID),
+            bowlerID INTEGER REFERENCES Player(bowlerID)
         );
         """
 

@@ -27,7 +27,7 @@ class BowlersSubsetTable(SqlTable):
         select = f"SELECT COUNT(*) FROM {self.tableName}"
 
         if condition is not None:
-            select += "WHERE " + condition
+            select += " WHERE " + condition
 
         self.cur.execute(select)
         return self.cur.fetchone()[0]
@@ -48,7 +48,7 @@ class BowlersSubsetTable(SqlTable):
         select = "SELECT bowlerID FROM BOWLERS"
 
         if condition is not None:
-            select += "WHERE " + condition
+            select += " WHERE " + condition
 
         self.cur.execute(select)
         bowlerIDs = self.cur.fetchall()

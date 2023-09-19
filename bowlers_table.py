@@ -45,25 +45,6 @@ class BowlersTable(BowlersSubsetTable):
 
         bowlerID = self.cur.lastrowid 
         return Bowler(self.cur, bowlerID)
-
-    
-
-    def get(self, condition: str | None = None) -> list[Bowler]:
-
-        select = "SELECT bowlerID FROM BOWLERS"
-
-        if condition is not None:
-            select += "WHERE " + condition
-
-        self.cur.execute(select)
-        bowlerIDs = self.cur.fetchall()
-
-        bowlers = []
-
-        for bowlerID in bowlerIDs:
-            bowlers.append(Bowler(self.cur, bowlerID[0]))
-
-        return bowlers
     
     def getRosterTeams(self) -> dict[int, list[Bowler]]:
 
