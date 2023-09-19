@@ -1,3 +1,4 @@
+from typing import Optional
 from bowler import Bowler
 from bowlers_table import BowlersTable
 from dates_table import DatesTable
@@ -5,6 +6,7 @@ from enums import Attendance, Commitment, Transport
 from session_bowlers_table import SessionBowlersTable
 from sql_table import SqlTable
 import passwords
+
 
 import discord
 from discord.ext import commands
@@ -83,9 +85,9 @@ def generateProfileEmbed(bowler: Bowler):
     return embed
 
 @client.tree.command()
-async def profile(interaction: discord.Interaction):
+async def profile(interaction: discord.Interaction, discord: Optional[discord.Member]):
 
-    discordID = interaction.user.id
+    discordID = interaction.user.id if discord is None else discord.id
     bowler = bowlers.getBowlerByDiscord(discordID)
 
     if bowler is None:
@@ -96,6 +98,7 @@ async def profile(interaction: discord.Interaction):
 
 @client.tree.command()
 @app_commands.describe(
+    discord="Your @discord",
     fname='Your first name',
     lname='Your last name',
     email='Your WPI email',
@@ -106,27 +109,37 @@ async def profile(interaction: discord.Interaction):
     app_commands.Choice(name="rostered", value="rostered"),
     app_commands.Choice(name="sub", value="sub"),
 ])
-async def register(interaction: discord.Interaction, fname: str, lname:str, email: str, commitment: str, team: int | None = None):
-    discordID = interaction.user.id
-    bowler = bowlers.getBowlerByDiscord(discordID)
+async def register(interaction: discord.Interaction, discord: discord.Member, fname: str, lname:str, email: str, commitment: str, team: int | None = None):
+    print(discord, discord.id)
+    bowler = bowlers.getBowlerByDiscord(discord.id)
 
     if bowler is None:
-        bowler = bowlers.insert(fname, lname, email, discordID, Commitment(commitment))
+        bowler = bowlers.insert(fname, lname, email, discord.id, Commitment(commitment), team)
         if isinstance(bowler, str): # error message
             await interaction.response.send_message(bowler)
             return
+        
+        if bowler.getCommitment() == Commitment.ROSTERED:
+            session.addBowler(bowler)
 
         await interaction.response.send_message("Profile registered.", embed=generateProfileEmbed(bowler))
     else:
         await interaction.response.send_message("Profile already registered. Use /set commands to modify.", embed=generateProfileEmbed(bowler))
     
-@client.tree.command()
-async def optin(interaction: discord.Interaction):
-    discordID = interaction.user.id
+async def getBowler(interaction: discord.Interaction, discord: discord.Member) -> Bowler | None:
+    discordID = interaction.user.id if discord is None else discord.id
     bowler = bowlers.getBowlerByDiscord(discordID)
 
     if bowler is None:
         await interaction.response.send_message("No profile registered. Use /register to register.")
+        return None
+    return bowler
+
+@client.tree.command()
+async def optin(interaction: discord.Interaction, discord: Optional[discord.Member]):
+    bowler = await getBowler(interaction, discord)
+
+    if bowler is None:
         return
 
     if bowler.isInSession():
@@ -141,12 +154,10 @@ async def optin(interaction: discord.Interaction):
         await interaction.response.send_message("You have opted in.", embed=generateProfileEmbed(bowler))
 
 @client.tree.command()
-async def optout(interaction: discord.Interaction):
-    discordID = interaction.user.id
-    bowler = bowlers.getBowlerByDiscord(discordID)
+async def optout(interaction: discord.Interaction, discord: Optional[discord.Member]):
+    bowler = await getBowler(interaction, discord)
 
     if bowler is None:
-        await interaction.response.send_message("No profile registered. Use /register to register.")
         return
 
     if bowler.isInSession():
@@ -160,6 +171,34 @@ async def optout(interaction: discord.Interaction):
         await interaction.response.send_message(message, embed=generateProfileEmbed(bowler))
     else:
         await interaction.response.send_message("You are already opted out. Use /optin to opt in.", embed=generateProfileEmbed(bowler))
+
+
+@client.tree.command()
+async def buson(interaction: discord.Interaction, discord: Optional[discord.Member]):
+    bowler = await getBowler(interaction, discord)
+
+    if bowler is None:
+        return
+    
+    if bowler.getTransport() == Transport.BUS:
+        await interaction.response.send_message("Your transportation mode is already set to bus. Use /busoff for self-transportation.")
+    else:
+        bowler.setTransport(Transport.BUS)
+        await interaction.response.send_message("Your transportation mode has been set to bus.", embed=generateProfileEmbed(bowler))
+
+@client.tree.command()
+async def busoff(interaction: discord.Interaction, discord: Optional[discord.Member]):
+    bowler = await getBowler(interaction, discord)
+
+    if bowler is None:
+        return
+    
+    if bowler.getTransport() == Transport.SELF:
+        await interaction.response.send_message("Your transportation mode is already set to self. Use /buson for bus transportation.")
+    else:
+        bowler.setTransport(Transport.SELF)
+        await interaction.response.send_message("Your transportation mode has been set to self.", embed=generateProfileEmbed(bowler))
+    
 
 
 """
@@ -183,9 +222,12 @@ async def teams(interaction: discord.Interaction):
         response += "\n"
 
     response += "SUBSTITUTES:\n"
-    for bowler in bowlers.getSubs():
+    subs = bowlers.getSubs()
+    for bowler in subs:
         name = bowler.getFullName()
         response += f"{name} <@{bowler.getDiscord()}>\n"
+    if len(subs) == 0:
+        response += "[None]\n"
     
     allowed = discord.AllowedMentions.none()
     await interaction.response.send_message(response, allowed_mentions = allowed)
@@ -193,9 +235,10 @@ async def teams(interaction: discord.Interaction):
 @client.tree.command()
 async def lineup(interaction: discord.Interaction):
     
+    date = dates.getActiveDate()
     teams = bowlers.getRosterTeams()
 
-    response = ""
+    response = f"**LINEUP FOR {date.value}**\n"
     for number in teams:
         teammates = teams[number]
 
@@ -204,7 +247,8 @@ async def lineup(interaction: discord.Interaction):
         for teammate in teammates:
             name = teammate.getFullName()
             if not teammate.isInSession():
-                name = f"~~{name}~~"
+                response += f"~~{name}~~\n"
+                continue
 
             response += f"{name} <@{teammate.getDiscord()}>"
 
@@ -212,10 +256,28 @@ async def lineup(interaction: discord.Interaction):
                 response += " (NOT BUS)"
             
             response += "\n"
+
+        for bowler in session.getSubsForTeam(number):
+            name = bowler.getFullName()
+            response += f"{name} <@{bowler.getDiscord()}>\n"
+
         response += "\n"
+
+    response += "OVERFLOW LANES:\n"
+    subs = session.getSubsForTeam(None)
+    for bowler in subs:
+        name = bowler.getFullName()
+        response += f"{name} <@{bowler.getDiscord()}>\n"
+    if len(subs) == 0:
+        response += "[None]\n"
     
     allowed = discord.AllowedMentions.none()
     await interaction.response.send_message(response, allowed_mentions = allowed)
+
+@client.tree.command()
+async def sql(interaction: discord.Interaction, query: str):
+    cur.execute(query)
+    await interaction.response.send_message(str(cur.fetchall()))
 
 
 # EXECUTES THE BOT WITH THE SPECIFIED TOKEN.

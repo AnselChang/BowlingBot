@@ -1,5 +1,6 @@
 from typing import TYPE_CHECKING
 from bowler import Bowler
+from enums import Commitment
 
 from sql_table import SqlTable
 from dates_table import DatesTable
@@ -13,6 +14,7 @@ class SessionBowlersTable(SqlTable):
             sessionBowlerID INTEGER PRIMARY KEY AUTOINCREMENT,
             date TEXT REFERENCES Dates(date),
             bowlerID INTEGER REFERENCES Player(bowlerID),
+            team INTEGER NULL,
             attendance TEXT CHECK (Attendance IN ('await', 'yes', 'no'))
         );
         """
@@ -23,8 +25,8 @@ class SessionBowlersTable(SqlTable):
         # attendance is set to await
 
         self.cur.execute(
-            f"INSERT INTO {self.tableName} (date, bowlerID, attendance) VALUES (?, ?, ?)",
-            (bowler._getActiveDate(), bowler.bowlerID, "await")
+            f"INSERT INTO {self.tableName} (date, bowlerID, team, attendance) VALUES (?, ?, ?, ?)",
+            (bowler._getActiveDate(), bowler.bowlerID, bowler.getTeam(), "await")
         )
 
         sessionBowlerID = self.cur.lastrowid
@@ -60,6 +62,25 @@ class SessionBowlersTable(SqlTable):
 
         for bowlerID in bowlerIDs:
             bowlers.append(Bowler(self.cur, bowlerID[0]))
+
+        return bowlers
+    
+    def getSubsForTeam(self, team: int | None) -> list[Bowler]:
+
+        if team is None:
+            self.cur.execute(f"SELECT bowlerID FROM {self.tableName} WHERE date = ? AND team IS NULL", (self.getActiveDate(),))
+        else:
+            self.cur.execute(f"SELECT bowlerID FROM {self.tableName} WHERE date = ? AND team = ?", (self.getActiveDate(), team))
+        bowlerIDs = self.cur.fetchall()
+
+        print(team, bowlerIDs)
+
+        bowlers = []
+
+        for bowlerID in bowlerIDs:
+            bowler = Bowler(self.cur, bowlerID[0])
+            if bowler.getCommitment() == Commitment.SUB:
+                bowlers.append(bowler)
 
         return bowlers
         

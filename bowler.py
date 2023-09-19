@@ -79,8 +79,8 @@ class Bowler:
             return
         self.cur.execute("UPDATE Bowlers SET team = ? WHERE bowlerID = ?", (team, self.bowlerID))
 
-    def setTransport(self, transport: str):
-        self.cur.execute("UPDATE Bowlers SET transport = ? WHERE bowlerID = ?", (transport, self.bowlerID))
+    def setTransport(self, transport: Transport):
+        self.cur.execute("UPDATE Bowlers SET transport = ? WHERE bowlerID = ?", (transport.value, self.bowlerID))
 
     """
     THESE FUNCTIONS ARE FOR THE SESSION BOWLER. THEY USE THE SESSION BOWLER TABLE
