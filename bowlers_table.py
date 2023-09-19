@@ -28,10 +28,14 @@ class BowlersTable(SqlTable):
         bowlerID = self.cur.lastrowid 
         return Bowler(self.cur, bowlerID)
 
-    # get the bowler ID from bowler with discord
-    def getBowlerByDiscord(self, discord: str) -> Bowler:
+    # get the bowler matching discord or none if not found
+    def getBowlerByDiscord(self, discord: str) -> Bowler | None:
         self.cur.execute(f"SELECT bowlerID FROM {self.tableName} WHERE discord = ?", (discord,))
-        bowlerID = self.cur.fetchone()[0]
+        row = self.cur.fetchone()
+        if row is None:
+            return None
+        
+        bowlerID = row[0]
         return Bowler(self.cur, bowlerID)
 
     
