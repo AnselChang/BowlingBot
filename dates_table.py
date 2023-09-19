@@ -1,5 +1,4 @@
-from bowler import Bowler
-from enums import Commitment, Transport
+from enums import Date
 from sql_table import SqlTable
 
 class DatesTable(SqlTable):
@@ -24,35 +23,23 @@ class DatesTable(SqlTable):
         
         super().createTable()
 
-        DATES = [
-            "September 20",
-            "September 27",
-            "October 4",
-            "October 25",
-            "November 1",
-            "November 8",
-            "November 15",
-            "November 29",
-            "December 6"
-        ]
+        activeDate = Date.SEPTEMBER20
 
-        activeDate = DATES[0]
-
-        for date in DATES:
+        for date in Date:
             mode = "active" if date == activeDate else "future"
             self.cur.execute(
                 f"INSERT INTO {self.tableName} (date, status) VALUES (?, ?)",
-                (date, mode)
+                (date.value, mode)
             )
 
-    def getActiveDate(self) -> str:
+    def getActiveDate(self) -> Date:
         self.cur.execute(f"SELECT date FROM {self.tableName} WHERE status = 'active'")
-        return self.cur.fetchone()[0]
+        return Date(self.cur.fetchone()[0])
     
     # make the date active, all the dates before it past, and all the dates after it future
     # use id for comparing date order
-    def setActiveDate(self, date: str):
-        self.cur.execute(f"SELECT dateID FROM {self.tableName} WHERE date = ?", (date,))
+    def setActiveDate(self, date: Date):
+        self.cur.execute(f"SELECT dateID FROM {self.tableName} WHERE date = ?", (date.value,))
         dateID = self.cur.fetchone()[0]
         self.cur.execute(f"UPDATE {self.tableName} SET status = 'past' WHERE dateID < ?", (dateID,))
         self.cur.execute(f"UPDATE {self.tableName} SET status = 'active' WHERE dateID = ?", (dateID,))
