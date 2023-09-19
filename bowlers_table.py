@@ -6,7 +6,7 @@ from sql_table import SqlTable
 
 class BowlersTable(BowlersSubsetTable):
 
-    def __init__(self, cur):
+    def __init__(self, con, cur):
 
         CREATE_BOWLER = """
         CREATE TABLE Bowlers (
@@ -21,7 +21,7 @@ class BowlersTable(BowlersSubsetTable):
         );
         """
 
-        super().__init__(cur, "Bowlers", CREATE_BOWLER)
+        super().__init__(con, cur, "Bowlers", CREATE_BOWLER)
 
 
     def addBowler(self, fname: str, lname: str, email: str, discord: str, commitment: Commitment, team: int | None = None, transport: Transport = Transport.BUS) -> Bowler:
@@ -39,12 +39,13 @@ class BowlersTable(BowlersSubsetTable):
                 f"INSERT INTO {self.tableName} (firstName, lastName, email, discord, commitment, transport, team) VALUES (?, ?, ?, ?, ?, ?, ?)",
                 (fname, lname, email, discord, commitment.value, transport.value, team if team is not None else "NULL")
             )
+            self.con.commit()
         except:
             print("Failed to insert", fname, lname)
             return None
 
         bowlerID = self.cur.lastrowid 
-        return Bowler(self.cur, bowlerID)
+        return Bowler(self.con, self.cur, bowlerID)
     
     def getRosterTeams(self) -> dict[int, list[Bowler]]:
 

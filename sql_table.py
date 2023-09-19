@@ -1,14 +1,17 @@
-import sql_command
-
 class SqlTable:
 
-    def __init__(self, cur, tableName: str, createCommand: str):
+    def __init__(self, con, cur, tableName: str, createCommand: str):
+        self.con = con
         self.cur = cur
         self.tableName = tableName
         self.createCommand = createCommand
 
     def exists(self) -> bool:
-        self.cur.execute(sql_command.TABLE_EXISTS, (self.tableName,))
+
+        TABLE_EXISTS = """
+        SELECT count(name) FROM sqlite_master WHERE type='table' AND name=?
+        """
+        self.cur.execute(TABLE_EXISTS, (self.tableName,))
         return self.cur.fetchone()[0] == 1
 
     def createTable(self):
@@ -18,6 +21,7 @@ class SqlTable:
             return
 
         self.cur.executescript(self.createCommand)
+        self.con.commit()
 
     def deleteTable(self):
 
@@ -26,6 +30,7 @@ class SqlTable:
             return
 
         self.cur.execute(f"DROP TABLE {self.tableName}")
+        self.con.commit()
 
     def getAll(self):
         self.cur.execute(f"SELECT * FROM {self.tableName}")

@@ -16,7 +16,8 @@ class CacheBowlerProfile:
 
 class Bowler:
 
-    def __init__(self, cur, bowlerID: int):
+    def __init__(self, con, cur, bowlerID: int):
+        self.con = con
         self.cur = cur
         self.bowlerID = bowlerID
 
@@ -53,25 +54,31 @@ class Bowler:
     
     def setFullName(self, firstName: str, lastName: str):
         self.cur.execute("UPDATE Bowlers SET firstName = ?, lastName = ? WHERE bowlerID = ?", (firstName, lastName, self.bowlerID))
+        self.con.commit()
 
     def setEmail(self, email: str):
         self.cur.execute("UPDATE Bowlers SET email = ? WHERE bowlerID = ?", (email, self.bowlerID))
+        self.con.commit()
 
     def setDiscord(self, discord: str):
         self.cur.execute("UPDATE Bowlers SET discord = ? WHERE bowlerID = ?", (discord, self.bowlerID))
+        self.con.commit()
 
     def setCommitment(self, commitment: Commitment):
         self.cur.execute("UPDATE Bowlers SET commitment = ? WHERE bowlerID = ?", (commitment.value, self.bowlerID))
+        self.con.commit()
 
     def setTeam(self, team: int):
         if self.getCommitment() == Commitment.SUB:
             print("Cannot set team for substitute")
             return
         self.cur.execute("UPDATE Bowlers SET team = ? WHERE bowlerID = ?", (team, self.bowlerID))
+        self.con.commit()
 
     def setTransport(self, transport: Transport):
         self.cur.execute("UPDATE Bowlers SET transport = ? WHERE bowlerID = ?", (transport.value, self.bowlerID))
-
+        self.con.commit()
+        
     def isInSession(self) -> bool:
 
         # check if the bowler is in the session.

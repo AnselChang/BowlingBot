@@ -4,7 +4,7 @@ from bowlers_subset_table import BowlersSubsetTable
 # sub opt in
 class SOITable(BowlersSubsetTable):
 
-    def __init__(self, cur):
+    def __init__(self, con, cur):
 
         SOIBowlers = """
         CREATE TABLE SOIBowlers (
@@ -14,4 +14,6 @@ class SOITable(BowlersSubsetTable):
         );
         """
 
-        super().__init__(cur, "SOIBowlers", SOIBowlers)
+        super().__init__(con, cur, "SOIBowlers", SOIBowlers)
+
+    

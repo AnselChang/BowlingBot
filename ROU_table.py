@@ -4,7 +4,7 @@ from bowlers_subset_table import BowlersSubsetTable
 # roster opt out
 class ROUTable(BowlersSubsetTable):
 
-    def __init__(self, cur):
+    def __init__(self, con, cur):
 
         ROUBowlers = """
         CREATE TABLE ROUBowlers (
@@ -13,4 +13,4 @@ class ROUTable(BowlersSubsetTable):
         );
         """
 
-        super().__init__(cur, "ROUBowlers", ROUBowlers)
+        super().__init__(con, cur, "ROUBowlers", ROUBowlers)

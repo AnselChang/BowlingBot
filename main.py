@@ -6,7 +6,6 @@ from ROU_table import ROUTable
 from SOI_table import SOITable
 from lineup import Lineup
 from misc import BowlerDisplayInfo
-from sql_table import SqlTable
 import passwords
 
 
@@ -20,9 +19,9 @@ CHANNEL_BOT_TEST = 1153536156651233341
 con = sqlite3.connect("bowling.db")
 cur = con.cursor()
 
-bowlers = BowlersTable(cur)
-rou = ROUTable(cur)
-soi = SOITable(cur)
+bowlers = BowlersTable(con, cur)
+rou = ROUTable(con, cur)
+soi = SOITable(con, cur)
 
 MY_GUILD = discord.Object(id=1012052441757397062)
 
@@ -267,7 +266,7 @@ async def lineup(interaction: discord.Interaction):
     lineup = Lineup(cur)
     for bowlerInfo in lineup.getLineup():
 
-        bowler = Bowler(cur, bowlerInfo.id)
+        bowler = Bowler(con, cur, bowlerInfo.id)
 
         if bowlerInfo.team != currentTeam:
             currentTeam = bowlerInfo.team
@@ -288,12 +287,47 @@ async def lineup(interaction: discord.Interaction):
     allowed = discord.AllowedMentions.none()
     await interaction.response.send_message(response, allowed_mentions = allowed)
 
+
 @client.tree.command()
-async def sql(interaction: discord.Interaction, query: str):
-    cur.execute(query)
-    await interaction.response.send_message(str(cur.fetchall()))
+async def help(interaction: discord.Interaction):
 
+    embed=discord.Embed(
+        title="BowlingBot Help",
+        description="A WPI league roster management tool. Store bowler info, organize teams, and determine lineups and substitutes each week."
+    )
 
+    embed.add_field(
+        name="/register", value = "Register a bowler", inline=False)
+    
+    embed.add_field(
+        name="/unregister", value = "Unregister a bowler", inline=False)
+    
+    embed.add_field(
+        name="/profile", value = "View a bowler profile", inline=False)
+    
+    embed.add_field(
+        name="/optin", value = "Opt in to bowling this week. Rostered players are opted in by default", inline=False)
+    
+    embed.add_field(
+        name="/optout", value = "Opt out of bowling this week. Subs are opted out by default", inline=False)
+    
+    embed.add_field(
+        name="/buson", value = "Indicate taking WPI bus transportation this week", inline=False)
+    
+    embed.add_field(
+        name="/busoff", value = "Indicate providing your own transportation this week", inline=False)
+    
+    embed.add_field(
+        name="/assign", value = "Assign a rostered player to a new team, or a sub temporarily to a team. Set 0 to team to unassign a sub", inline=False)
+    
+    embed.add_field(
+        name="/teams", value = "View the rostered teams and substitutes", inline=False)
+    
+    embed.add_field(
+        name="/lineup", value = "View the lineup for this week", inline=False)
+    
+    await interaction.response.send_message(embed=embed)
+    
 #resetDatabase()
 
 # EXECUTES THE BOT WITH THE SPECIFIED TOKEN.

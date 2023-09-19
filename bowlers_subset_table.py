@@ -6,9 +6,9 @@ from sql_table import SqlTable
 
 class BowlersSubsetTable(SqlTable):
 
-    def __init__(self, cur, tableName: str, createCommand: str):
+    def __init__(self, con, cur, tableName: str, createCommand: str):
 
-        super().__init__(cur, tableName, createCommand)
+        super().__init__(con, cur, tableName, createCommand)
 
     def addBowler(self, bowler: Bowler):
         # attendance is set to await
@@ -17,9 +17,11 @@ class BowlersSubsetTable(SqlTable):
             f"INSERT INTO {self.tableName} (bowlerID) VALUES (?)",
             (bowler.bowlerID,)
         )
+        self.con.commit()
     
     def removeBowler(self, bowler: Bowler):
         self.cur.execute(f"DELETE FROM {self.tableName} WHERE bowlerID = ?", (bowler.bowlerID,))
+        self.con.commit()
     
     # how many bowlers in list
     def count(self, condition = None) -> int:
@@ -56,7 +58,7 @@ class BowlersSubsetTable(SqlTable):
         bowlers = []
 
         for bowlerID in bowlerIDs:
-            bowlers.append(Bowler(self.cur, bowlerID[0]))
+            bowlers.append(Bowler(self.con, self.cur, bowlerID[0]))
 
         return bowlers
     
@@ -68,10 +70,11 @@ class BowlersSubsetTable(SqlTable):
             return None
         
         bowlerID = results[0].bowlerID
-        return Bowler(self.cur, bowlerID)
+        return Bowler(self.con, self.cur, bowlerID)
     
     def assignTeam(self, bowler: Bowler, team: int | None):
         self.cur.execute(f"UPDATE {self.tableName} SET team = ? WHERE bowlerID = ?", (team, bowler.bowlerID))
+        self.con.commit()
     
     def log(self):
         print(f"{self.tableName}")
