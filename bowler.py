@@ -1,5 +1,4 @@
-from dates_table import DatesTable
-from enums import Attendance, Commitment, Date, Transport
+from enums import Commitment, Transport
 
 # a struct to cache bowler info
 class CacheBowlerProfile:
@@ -13,15 +12,6 @@ class CacheBowlerProfile:
         self.commitment = commitment
         self.transport = transport
         self.team = team
-
-class CacheBowlerSession:
-
-    def __init__(self, bowlerID: int, profile: CacheBowlerProfile, date: str, currentTransport: Transport, attendance: Attendance):
-        self.bowlerID = bowlerID
-        self.profile = profile
-        self.date = date
-        self.attendance = attendance
-
 
 
 class Bowler:
@@ -82,58 +72,25 @@ class Bowler:
     def setTransport(self, transport: Transport):
         self.cur.execute("UPDATE Bowlers SET transport = ? WHERE bowlerID = ?", (transport.value, self.bowlerID))
 
-    """
-    THESE FUNCTIONS ARE FOR THE SESSION BOWLER. THEY USE THE SESSION BOWLER TABLE
-    AND ACTIVE DATE FROM THE DATES TABLE
-    """
-
-    def _getActiveDate(self) -> str:
-        return DatesTable(self.cur).getActiveDate().value
-    
     def isInSession(self) -> bool:
-        
-        # get the active date
-        date = self._getActiveDate()
 
-        # check if the bowler is in the session
-        self.cur.execute(
-            "SELECT EXISTS(SELECT 1 FROM SessionBowlers WHERE bowlerID = ? AND date = ?)",
-            (self.bowlerID, date)
-        )
+        # check if the bowler is in the session.
+        # whether opted out for rostered players or opted in for substitutes
 
-        return self.cur.fetchone()[0] == 1
-    
-    def getAttendance(self) -> Attendance:
+        if self.getCommitment() == Commitment.ROSTERED:
+            self.cur.execute(
+                "SELECT EXISTS(SELECT 1 FROM ROUBowlers WHERE bowlerID = ?)",
+                (self.bowlerID)
+            )
+            return self.cur.fetchone()[0] == 0 # is not in ROU
+        else:
+            self.cur.execute(
+                "SELECT EXISTS(SELECT 1 FROM SUBBowlers WHERE bowlerID = ?)",
+                (self.bowlerID)
+            )
+            return self.cur.fetchone()[0] == 1 # is not in SOI
 
-        if not self.isInSession():
-            return Attendance.INVALID
-
-        date = self._getActiveDate()
-
-        self.cur.execute(
-            "SELECT attendance FROM SessionBowlers WHERE bowlerID = ? AND date = ?",
-            (self.bowlerID, date)
-        )
-
-        return Attendance(self.cur.fetchone()[0])
-    
-    def setAttendance(self, attendance: Attendance):
-
-        if not self.isInSession():
-            print("Bowler not in session")
-            return
-
-        date = self._getActiveDate()
-
-        self.cur.execute(
-            "UPDATE SessionBowlers SET attendance = ? WHERE bowlerID = ? AND date = ?",
-            (attendance.value, self.bowlerID, date)
-        )
-
-    """
-    Functions to cache bowler info
-    """
-
+    # takes snapshot of bowler info
     def cacheProfile(self) -> CacheBowlerProfile:
 
         firstName, lastName = self.getFullName()
@@ -144,14 +101,6 @@ class Bowler:
 
         return CacheBowlerProfile(self.bowlerID, firstName, lastName, email, discord, commitment, transport)
     
-    def cacheSession(self) -> CacheBowlerSession:
-
-        profile = self.cacheProfile()
-        date = self._getActiveDate()
-        attendance = self.getAttendance()
-
-        return CacheBowlerSession(self.bowlerID, profile, date, attendance)
-    
     def log(self):
 
         print("Bowler ID:", self.bowlerID)
@@ -160,6 +109,4 @@ class Bowler:
         print("Discord:", self.getDiscord())
         print("Commitment:", self.getCommitment())
         print("Transport:", self.getTransport())
-        print("Active Date:", self._getActiveDate())
-        print("Attendance:", self.getAttendance())
         print()

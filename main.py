@@ -1,9 +1,11 @@
 from typing import Optional
 from bowler import Bowler
 from bowlers_table import BowlersTable
-from dates_table import DatesTable
-from enums import Attendance, Commitment, Transport
-from session_bowlers_table import SessionBowlersTable
+from enums import Commitment, Transport
+from ROU_table import ROUTable
+from SOI_table import SOITable
+from lineup import Lineup
+from misc import BowlerDisplayInfo
 from sql_table import SqlTable
 import passwords
 
@@ -19,16 +21,8 @@ con = sqlite3.connect("bowling.db")
 cur = con.cursor()
 
 bowlers = BowlersTable(cur)
-dates = DatesTable(cur)
-session = SessionBowlersTable(cur)
-
-bowlers.deleteTable()
-bowlers.createTable()
-dates.deleteTable()
-dates.createTable()
-session.deleteTable()
-session.createTable()
-
+rou = ROUTable(cur)
+soi = SOITable(cur)
 
 MY_GUILD = discord.Object(id=1012052441757397062)
 
@@ -49,6 +43,13 @@ intents.messages = True
 
 client = MyClient(intents)
 
+def resetDatabase():
+    bowlers.deleteTable()
+    bowlers.createTable()
+    rou.deleteTable()
+    rou.createTable()
+    soi.deleteTable()
+    soi.createTable()
 
 @client.event
 async def on_ready():
@@ -64,23 +65,15 @@ def generateProfileEmbed(bowler: Bowler):
     embed=discord.Embed(
         title=f"{bowler.getFullName()} ~ {bowler.getEmail()}",
         description=commit, color=0x852acf)
-    
+        
     transport = "Bus" if bowler.getTransport() == Transport.BUS else "Other"
     embed.add_field(
         name="Transportation", value = transport, inline=False)
     
     isInSession = bowler.isInSession()
     embed.add_field(
-        name=f"Bowling on {bowler._getActiveDate()}?",
+        name=f"Bowling on DATE?",
         value= getBoolEmoji(isInSession), inline=False)
-
-    if isInSession: # only relevant if the bowler is in the session
-        attendance = bowler.getAttendance()
-        if attendance == Attendance.AWAIT:
-            emoji = ":question:"
-        else:
-            emoji = getBoolEmoji(attendance == Attendance.YES)
-        embed.add_field(name="Attendance", value=emoji, inline=False)
 
     return embed
 
@@ -114,13 +107,10 @@ async def register(interaction: discord.Interaction, discord: discord.Member, fn
     bowler = bowlers.getBowlerByDiscord(discord.id)
 
     if bowler is None:
-        bowler = bowlers.insert(fname, lname, email, discord.id, Commitment(commitment), team)
+        bowler = bowlers.addBowler(fname, lname, email, discord.id, Commitment(commitment), team)
         if isinstance(bowler, str): # error message
             await interaction.response.send_message(bowler)
             return
-        
-        if bowler.getCommitment() == Commitment.ROSTERED:
-            session.addBowler(bowler)
 
         await interaction.response.send_message("Profile registered.", embed=generateProfileEmbed(bowler))
     else:
@@ -135,6 +125,7 @@ async def getBowler(interaction: discord.Interaction, discord: discord.Member) -
         return None
     return bowler
 
+
 @client.tree.command()
 async def optin(interaction: discord.Interaction, discord: Optional[discord.Member]):
     bowler = await getBowler(interaction, discord)
@@ -143,15 +134,15 @@ async def optin(interaction: discord.Interaction, discord: Optional[discord.Memb
         return
 
     if bowler.isInSession():
-        if bowler.getCommitment() == Commitment.SUB:
-            message = "You are already opted in. Use /optout to opt out."
-        else:
-            message = "You are already opted in. Use /optout to opt out. Note that you are a rostered player, so are opted in by default."
-        await interaction.response.send_message(message, embed=generateProfileEmbed(bowler))
+        await interaction.response.send_message("You are already opted in. Use /optout to opt out.")
 
     else:
-        session.addBowler(bowler)
-        await interaction.response.send_message("You have opted in.", embed=generateProfileEmbed(bowler))
+        if bowler.getCommitment() == Commitment.SUB:
+            rou.removeBowler(bowler)
+        else:
+            soi.addBowler(bowler)
+
+        await interaction.response.send_message("You are now opted in. Use /optout to opt out.")
 
 @client.tree.command()
 async def optout(interaction: discord.Interaction, discord: Optional[discord.Member]):
@@ -160,17 +151,16 @@ async def optout(interaction: discord.Interaction, discord: Optional[discord.Mem
     if bowler is None:
         return
 
-    if bowler.isInSession():
-        session.removeBowler(bowler)
-        
-        if bowler.getCommitment() == Commitment.SUB:
-            message = "You have opted out."
-        else:
-            message = "You have opted out. Note that you are a rostered player, so please do this infrequently"
-        
-        await interaction.response.send_message(message, embed=generateProfileEmbed(bowler))
+    if not bowler.isInSession():
+        await interaction.response.send_message("You are already opted out. Use /optin to opt in.")
+
     else:
-        await interaction.response.send_message("You are already opted out. Use /optin to opt in.", embed=generateProfileEmbed(bowler))
+        if bowler.getCommitment() == Commitment.SUB:
+            soi.removeBowler(bowler)
+        else:
+            rou.addBowler(bowler)
+
+        await interaction.response.send_message("You are now opted out. Use /optin to opt in.")
 
 
 @client.tree.command()
@@ -184,7 +174,7 @@ async def buson(interaction: discord.Interaction, discord: Optional[discord.Memb
         await interaction.response.send_message("Your transportation mode is already set to bus. Use /busoff for self-transportation.")
     else:
         bowler.setTransport(Transport.BUS)
-        await interaction.response.send_message("Your transportation mode has been set to bus.", embed=generateProfileEmbed(bowler))
+        await interaction.response.send_message("Your transportation mode has been set to bus.")
 
 @client.tree.command()
 async def busoff(interaction: discord.Interaction, discord: Optional[discord.Member]):
@@ -197,9 +187,11 @@ async def busoff(interaction: discord.Interaction, discord: Optional[discord.Mem
         await interaction.response.send_message("Your transportation mode is already set to self. Use /buson for bus transportation.")
     else:
         bowler.setTransport(Transport.SELF)
-        await interaction.response.send_message("Your transportation mode has been set to self.", embed=generateProfileEmbed(bowler))
+        await interaction.response.send_message("Your transportation mode has been set to self.")
     
-
+def formatCount(numRostered, numSub):
+    total = numRostered + numSub
+    return f"{total} bowlers ({numRostered} rostered, {numSub} subs)\n"
 
 """
 Show all the rostered teams
@@ -207,9 +199,9 @@ Show all the rostered teams
 @client.tree.command()
 async def teams(interaction: discord.Interaction):
     
-    teams = bowlers.getRosterTeams()
+    response = formatCount(bowlers.countRostered(), bowlers.countSubs())
 
-    response = ""
+    teams = bowlers.getRosterTeams()
     for number in teams:
         teammates = teams[number]
 
@@ -234,43 +226,30 @@ async def teams(interaction: discord.Interaction):
 
 @client.tree.command()
 async def lineup(interaction: discord.Interaction):
+
+    response = "**LINEUP FOR DATE**\n"
+    response += formatCount(bowlers.countRostered(), bowlers.countSubs())
     
-    date = dates.getActiveDate()
-    teams = bowlers.getRosterTeams()
+    currentTeam = -1
 
-    response = f"**LINEUP FOR {date.value}**\n"
-    for number in teams:
-        teammates = teams[number]
+    lineup = Lineup(cur)
+    for bowlerInfo in lineup.getLineup():
 
-        response += f"TEAM {number}:\n"
+        bowler = Bowler(bowlerInfo.id)
 
-        for teammate in teammates:
-            name = teammate.getFullName()
-            if not teammate.isInSession():
-                response += f"~~{name}~~\n"
-                continue
-
-            response += f"{name} <@{teammate.getDiscord()}>"
-
-            if teammate.getTransport() == Transport.SELF:
-                response += " (NOT BUS)"
-            
-            response += "\n"
-
-        for bowler in session.getSubsForTeam(number):
-            name = bowler.getFullName()
-            response += f"{name} <@{bowler.getDiscord()}>\n"
-
-        response += "\n"
-
-    response += "OVERFLOW LANES:\n"
-    subs = session.getSubsForTeam(None)
-    for bowler in subs:
-        name = bowler.getFullName()
-        response += f"{name} <@{bowler.getDiscord()}>\n"
-    if len(subs) == 0:
-        response += "[None]\n"
+        if bowlerInfo.team != currentTeam:
+            currentTeam = bowlerInfo.team
+            response += f"\n**TEAM {currentTeam}**\n"
+        
+        display = BowlerDisplayInfo(bowlerInfo.fullName, bowlerInfo.discord, bowlerInfo.transport)
+        rosterAbsent = bowlerInfo.commitment == Commitment.ROSTERED and not bowler.isInSession()
+        response += display.toString(rosterAbsent, bowlerInfo.commitment == Commitment.SUB)
     
+    response += "\n**OVERFLOW**\n"
+    for bowlerInfo in lineup.getOverflow():
+        display = BowlerDisplayInfo(bowlerInfo.fullName, bowlerInfo.discord, bowlerInfo.transport)
+        response += display.toString(False, False)
+
     allowed = discord.AllowedMentions.none()
     await interaction.response.send_message(response, allowed_mentions = allowed)
 
@@ -279,6 +258,8 @@ async def sql(interaction: discord.Interaction, query: str):
     cur.execute(query)
     await interaction.response.send_message(str(cur.fetchall()))
 
+
+resetDatabase()
 
 # EXECUTES THE BOT WITH THE SPECIFIED TOKEN.
 client.run(passwords.TOKEN)

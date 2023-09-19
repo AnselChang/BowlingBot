@@ -1,9 +1,10 @@
 import sqlite3
 from bowler import Bowler
+from bowlers_subset_table import BowlersSubsetTable
 from enums import Commitment, Transport
 from sql_table import SqlTable
 
-class BowlersTable(SqlTable):
+class BowlersTable(BowlersSubsetTable):
 
     def __init__(self, cur):
 
@@ -23,7 +24,7 @@ class BowlersTable(SqlTable):
         super().__init__(cur, "Bowlers", CREATE_BOWLER)
 
 
-    def insert(self, fname: str, lname: str, email: str, discord: str, commitment: Commitment, team: int | None = None, transport: Transport = Transport.BUS) -> Bowler:
+    def addBowler(self, fname: str, lname: str, email: str, discord: str, commitment: Commitment, team: int | None = None, transport: Transport = Transport.BUS) -> Bowler:
 
         if commitment == Commitment.ROSTERED and team is None:
             print("Rostered bowler must have a team")
@@ -45,19 +46,16 @@ class BowlersTable(SqlTable):
         bowlerID = self.cur.lastrowid 
         return Bowler(self.cur, bowlerID)
 
-    # get the bowler matching discord or none if not found
-    def getBowlerByDiscord(self, discord: str) -> Bowler | None:
-        self.cur.execute(f"SELECT bowlerID FROM {self.tableName} WHERE discord = ?", (discord,))
-        row = self.cur.fetchone()
-        if row is None:
-            return None
-        
-        bowlerID = row[0]
-        return Bowler(self.cur, bowlerID)
+    
 
-    def getAllBowlers(self) -> list[Bowler]:
+    def get(self, condition: str | None = None) -> list[Bowler]:
 
-        self.cur.execute(f"SELECT bowlerID FROM BOWLERS")
+        select = "SELECT bowlerID FROM BOWLERS"
+
+        if condition is not None:
+            select += "WHERE " + condition
+
+        self.cur.execute(select)
         bowlerIDs = self.cur.fetchall()
 
         bowlers = []
@@ -70,9 +68,7 @@ class BowlersTable(SqlTable):
     def getRosterTeams(self) -> dict[int, list[Bowler]]:
 
         teams = {}
-        for bowler in self.getAllBowlers():
-            if bowler.getCommitment() == Commitment.SUB:
-                continue
+        for bowler in self.get(condition = "commitment = 'rostered'"):
 
             team = bowler.getTeam()
             if team not in teams:
@@ -82,4 +78,11 @@ class BowlersTable(SqlTable):
         return teams
 
     def getSubs(self) -> list[Bowler]:
-        return [bowler for bowler in self.getAllBowlers() if bowler.getCommitment() == Commitment.SUB]
+        
+        return self.get(condition = "commitment = 'sub'")
+    
+    def countRostered(self) -> int:
+        return self.count(condition = "commitment = 'rostered'")
+    
+    def countSubs(self) -> int:
+        return self.count(condition = "commitment = 'sub'")
