@@ -27,10 +27,10 @@ dates.createTable()
 session.deleteTable()
 session.createTable()
 
-john = bowlers.insert("John", "Doe", "email@com", "jd#1234", Commitment.ROSTERED, 1)
-jane = bowlers.insert("Jane", "Doe", "email@com", "jd#1234", Commitment.ROSTERED, 1)
-jim = bowlers.insert("Jim", "Doe", "email@com", "jd#1234", Commitment.ROSTERED, 2)
-joe = bowlers.insert("Joe", "Doe", "email@com", "jd#1234", Commitment.ROSTERED, 3)
+john = bowlers.insert("John", "Doe", "email@com", "450748389001265186", Commitment.ROSTERED, 1)
+jane = bowlers.insert("Jane", "Doe", "email@com", "450748389001265186", Commitment.ROSTERED, 1)
+jim = bowlers.insert("Jim", "Doe", "email@com", "450748389001265186", Commitment.ROSTERED, 2)
+joe = bowlers.insert("Joe", "Doe", "email@com", "450748389001265186", Commitment.ROSTERED, 3)
 session.addBowler(john)
 
 
@@ -131,6 +131,10 @@ async def optin(interaction: discord.Interaction):
     discordID = interaction.user.id
     bowler = bowlers.getBowlerByDiscord(discordID)
 
+    if bowler is None:
+        await interaction.response.send_message("No profile registered. Use /register to register.")
+        return
+
     if bowler.isInSession():
         if bowler.getCommitment() == Commitment.SUB:
             message = "You are already opted in. Use /optout to opt out."
@@ -146,6 +150,10 @@ async def optin(interaction: discord.Interaction):
 async def optout(interaction: discord.Interaction):
     discordID = interaction.user.id
     bowler = bowlers.getBowlerByDiscord(discordID)
+
+    if bowler is None:
+        await interaction.response.send_message("No profile registered. Use /register to register.")
+        return
 
     if bowler.isInSession():
         session.removeBowler(bowler)
@@ -169,13 +177,26 @@ async def teams(interaction: discord.Interaction):
     teams = bowlers.getRosterTeams()
 
     response = ""
-    for team in teams:
-        response += f"**TEAM {team[0]}**\n"
-        for name in team[1].split(","):
-            response += f"{name}\n"
+    for number in teams:
+        teammates = teams[number]
+
+        response += f"TEAM {number}:\n"
+
+        for teammate in teammates:
+            name = teammate.getFullName()
+            if not teammate.isInSession():
+                name = f"~~{name}~~"
+
+            response += f"{name} <@{teammate.getDiscord()}>"
+
+            if teammate.getCurrentTransport() == Transport.SELF:
+                response += " (NOT BUS)"
+            
+            response += "\n"
         response += "\n"
     
-    await interaction.response.send_message(response)
+    allowed = discord.AllowedMentions.none()
+    await interaction.response.send_message(response, allowed_mentions = allowed)
 
 """
 Show the current lineup for the active session
@@ -187,7 +208,7 @@ async def lineup(interaction: discord.Interaction):
     date = dates.getActiveDate()
 
     response = None
-    embed=discord.Embed(title=f"Lineup for {date}", color=0x852acf)
+    embed=discord.Embed(title=f"Lineup for {date.value}", color=0x852acf)
 
     for bowler in session.getAllSessionBowlers():
         embed.add_field(name=bowler.getFullName(), value=bowler.getCommitment().value, inline=False)

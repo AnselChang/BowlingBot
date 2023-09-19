@@ -75,17 +75,29 @@ class BowlersTable(SqlTable):
         
         bowlerID = row[0]
         return Bowler(self.cur, bowlerID)
+
+    def getAllBowlers(self) -> list[Bowler]:
+
+        self.cur.execute(f"SELECT bowlerID FROM BOWLERS")
+        bowlerIDs = self.cur.fetchall()
+
+        bowlers = []
+
+        for bowlerID in bowlerIDs:
+            bowlers.append(Bowler(self.cur, bowlerID[0]))
+
+        return bowlers
     
-    def getRosterTeams(self):
+    def getRosterTeams(self) -> dict[int, list[Bowler]]:
 
-        self.cur.execute("""
-        SELECT team, GROUP_CONCAT(firstName || ' ' || lastName) AS BowlerIDs
-        FROM Bowlers
-        WHERE commitment = 'rostered' AND team IS NOT NULL
-        GROUP BY team
-        ORDER BY team;
-        """)
+        teams = {}
+        for bowler in self.getAllBowlers():
+            if bowler.getCommitment() == Commitment.SUB:
+                continue
 
-        return self.cur.fetchall()
+            team = bowler.getTeam()
+            if team not in teams:
+                teams[team] = []
+            teams[team].append(bowler)
 
-    
+        return teams
