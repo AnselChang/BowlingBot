@@ -9,7 +9,7 @@ class SOITable(BowlersSubsetTable):
         SOIBowlers = """
         CREATE TABLE SOIBowlers (
             SOIBowlerID INTEGER PRIMARY KEY AUTOINCREMENT,
-            bowlerID INTEGER REFERENCES Player(bowlerID),
+            bowlerID INTEGER REFERENCES Player(bowlerID) ON DELETE CASCADE,
             team INTEGER NULL
         );
         """

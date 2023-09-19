@@ -45,7 +45,7 @@ class Lineup:
                 B.discord,
                 B.commitment,
                 B.transport,
-                S.team,
+                CASE WHEN B.team IS NULL THEN S.team ELSE B.team END AS team,
                 CASE WHEN R.ROUBowlerID IS NOT NULL THEN 'out' ELSE 'in' END AS status
             FROM Bowlers B
             LEFT JOIN SOIBowlers S ON B.bowlerID = S.bowlerID

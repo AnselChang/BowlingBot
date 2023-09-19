@@ -65,7 +65,7 @@ def generateProfileEmbed(bowler: Bowler):
     embed=discord.Embed(
         title=f"{bowler.getFullName()} ~ {bowler.getEmail()}",
         description=commit, color=0x852acf)
-        
+
     transport = "Bus" if bowler.getTransport() == Transport.BUS else "Other"
     embed.add_field(
         name="Transportation", value = transport, inline=False)
@@ -115,7 +115,7 @@ async def register(interaction: discord.Interaction, discord: discord.Member, fn
         await interaction.response.send_message("Profile registered.", embed=generateProfileEmbed(bowler))
     else:
         await interaction.response.send_message("Profile already registered. Use /set commands to modify.", embed=generateProfileEmbed(bowler))
-    
+
 async def getBowler(interaction: discord.Interaction, discord: discord.Member) -> Bowler | None:
     discordID = interaction.user.id if discord is None else discord.id
     bowler = bowlers.getBowlerByDiscord(discordID)
@@ -125,6 +125,15 @@ async def getBowler(interaction: discord.Interaction, discord: discord.Member) -
         return None
     return bowler
 
+@client.tree.command()
+async def unregister(interaction: discord.Interaction, discord: Optional[discord.Member]):
+    bowler = await getBowler(interaction, discord)
+
+    if bowler is None:
+        return
+
+    bowlers.removeBowler(bowler)
+    await interaction.response.send_message("Profile unregistered.")
 
 @client.tree.command()
 async def optin(interaction: discord.Interaction, discord: Optional[discord.Member]):
@@ -199,21 +208,20 @@ Show all the rostered teams
 @client.tree.command()
 async def teams(interaction: discord.Interaction):
     
-    response = formatCount(bowlers.countRostered(), bowlers.countSubs())
+    response = "**WPI LEAGUE ROSTER**\n"
+    response += formatCount(bowlers.countRostered(), bowlers.countSubs())
 
     teams = bowlers.getRosterTeams()
     for number in teams:
         teammates = teams[number]
 
-        response += f"TEAM {number}:\n"
+        response += f"\n**TEAM {number}:**\n"
 
         for teammate in teammates:
             name = teammate.getFullName()
             response += f"{name} <@{teammate.getDiscord()}>\n"
 
-        response += "\n"
-
-    response += "SUBSTITUTES:\n"
+    response += "\n**SUBSTITUTES:**\n"
     subs = bowlers.getSubs()
     for bowler in subs:
         name = bowler.getFullName()
@@ -235,7 +243,7 @@ async def lineup(interaction: discord.Interaction):
     lineup = Lineup(cur)
     for bowlerInfo in lineup.getLineup():
 
-        bowler = Bowler(bowlerInfo.id)
+        bowler = Bowler(cur, bowlerInfo.id)
 
         if bowlerInfo.team != currentTeam:
             currentTeam = bowlerInfo.team
@@ -246,9 +254,12 @@ async def lineup(interaction: discord.Interaction):
         response += display.toString(rosterAbsent, bowlerInfo.commitment == Commitment.SUB)
     
     response += "\n**OVERFLOW**\n"
-    for bowlerInfo in lineup.getOverflow():
+    overflow = lineup.getOverflow()
+    for bowlerInfo in overflow:
         display = BowlerDisplayInfo(bowlerInfo.fullName, bowlerInfo.discord, bowlerInfo.transport)
         response += display.toString(False, False)
+    if len(overflow) == 0:
+        response += "[None]\n"
 
     allowed = discord.AllowedMentions.none()
     await interaction.response.send_message(response, allowed_mentions = allowed)
@@ -259,7 +270,7 @@ async def sql(interaction: discord.Interaction, query: str):
     await interaction.response.send_message(str(cur.fetchall()))
 
 
-resetDatabase()
+#resetDatabase()
 
 # EXECUTES THE BOT WITH THE SPECIFIED TOKEN.
 client.run(passwords.TOKEN)

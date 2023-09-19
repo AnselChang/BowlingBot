@@ -79,14 +79,14 @@ class Bowler:
 
         if self.getCommitment() == Commitment.ROSTERED:
             self.cur.execute(
-                "SELECT EXISTS(SELECT 1 FROM ROUBowlers WHERE bowlerID = ?)",
-                (self.bowlerID)
+                "SELECT EXISTS(SELECT 1 FROM ROUBowlers WHERE bowlerID = ?);",
+                (self.bowlerID,)
             )
             return self.cur.fetchone()[0] == 0 # is not in ROU
         else:
             self.cur.execute(
-                "SELECT EXISTS(SELECT 1 FROM SUBBowlers WHERE bowlerID = ?)",
-                (self.bowlerID)
+                "SELECT EXISTS(SELECT 1 FROM SUBBowlers WHERE bowlerID = ?);",
+                (self.bowlerID,)
             )
             return self.cur.fetchone()[0] == 1 # is not in SOI
 

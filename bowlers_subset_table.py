@@ -15,11 +15,11 @@ class BowlersSubsetTable(SqlTable):
 
         self.cur.execute(
             f"INSERT INTO {self.tableName} (bowlerID) VALUES (?)",
-            (bowler.bowlerID)
+            (bowler.bowlerID,)
         )
     
     def removeBowler(self, bowler: Bowler):
-        self.cur.execute(f"DELETE FROM {self.tableName} WHERE bowlerID = ?", (bowler.bowlerID))
+        self.cur.execute(f"DELETE FROM {self.tableName} WHERE bowlerID = ?", (bowler.bowlerID,))
     
     # how many bowlers in list
     def count(self, condition = None) -> int:
@@ -62,8 +62,12 @@ class BowlersSubsetTable(SqlTable):
     
         # get the bowler matching discord or none if not found
     def getBowlerByDiscord(self, discord: str) -> Bowler | None:
+
+        results = self.get(condition=f"discord = '{discord}'")
+        if len(results) == 0:
+            return None
         
-        bowlerID = self.get(condition=f"discord = '{discord}'")[0].bowlerID
+        bowlerID = results[0].bowlerID
         return Bowler(self.cur, bowlerID)
     
     def log(self):
