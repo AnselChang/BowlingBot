@@ -12,6 +12,7 @@ import passwords
 import discord
 from discord.ext import commands
 from discord import app_commands
+import discord.utils
 import sqlite3
 
 CHANNEL_BOT_TEST = 1153536156651233341
@@ -76,6 +77,14 @@ def generateProfileEmbed(bowler: Bowler):
 
     return embed
 
+async def makeAdminOnly(interaction: discord.Interaction):
+    if not "exec" in [role.name.lower() for role in interaction.user.roles]:
+        print("NO PERMISSION")
+        await interaction.response.send_message("You do not have permission to use this command.")
+        raise commands.MissingPermissions(["exec"])
+    else:
+        print("PERMISSION")
+    
 @client.tree.command(description="View a bowler profile")
 async def profile(interaction: discord.Interaction, discord: Optional[discord.Member]):
 
@@ -102,7 +111,9 @@ async def profile(interaction: discord.Interaction, discord: Optional[discord.Me
     app_commands.Choice(name="sub", value="sub"),
 ])
 async def register(interaction: discord.Interaction, discord: discord.Member, fname: str, lname:str, email: str, commitment: str, team: int | None = None):
-    print(discord, discord.id)
+    
+    await makeAdminOnly(interaction)
+
     bowler = bowlers.getBowlerByDiscord(discord.id)
 
     if bowler is None:
@@ -122,10 +133,14 @@ async def getBowler(interaction: discord.Interaction, discord: discord.Member) -
     if bowler is None:
         await interaction.response.send_message("No profile registered. Use `/register` to register.")
         return None
+
     return bowler
 
 @client.tree.command(description="Unregister a bowler. Removes all data associated with the bowler.")
 async def unregister(interaction: discord.Interaction, discord: Optional[discord.Member]):
+    
+    await makeAdminOnly(interaction)
+    
     bowler = await getBowler(interaction, discord)
 
     if bowler is None:
@@ -136,10 +151,13 @@ async def unregister(interaction: discord.Interaction, discord: Optional[discord
 
 @client.tree.command(description="Opt in to bowling this week")
 async def optin(interaction: discord.Interaction, discord: Optional[discord.Member]):
+
     bowler = await getBowler(interaction, discord)
 
     if bowler is None:
         return
+    if interaction.user.id != int(bowler.getDiscord()): # only admins can modify other people
+        await makeAdminOnly(interaction)
 
     if bowler.isInSession():
         await interaction.response.send_message("You are already opted in. Use `/optout` to opt out.")
@@ -154,10 +172,14 @@ async def optin(interaction: discord.Interaction, discord: Optional[discord.Memb
 
 @client.tree.command(description="Opt out of bowling this week")
 async def optout(interaction: discord.Interaction, discord: Optional[discord.Member]):
+    
     bowler = await getBowler(interaction, discord)
 
     if bowler is None:
         return
+    
+    if interaction.user.id != int(bowler.getDiscord()): # only admins can modify other people
+        await makeAdminOnly(interaction)
 
     if not bowler.isInSession():
         await interaction.response.send_message("You are already opted out. Use `/optin` to opt in.")
@@ -173,10 +195,14 @@ async def optout(interaction: discord.Interaction, discord: Optional[discord.Mem
 
 @client.tree.command(description="Indicate taking WPI bus transportation this week")
 async def buson(interaction: discord.Interaction, discord: Optional[discord.Member]):
+    
     bowler = await getBowler(interaction, discord)
 
     if bowler is None:
         return
+    
+    if interaction.user.id != int(bowler.getDiscord()): # only admins can modify other people
+        await makeAdminOnly(interaction)
     
     if bowler.getTransport() == Transport.BUS:
         await interaction.response.send_message("Your transportation mode is already set to bus. Use `/busoff` for self-transportation.")
@@ -186,10 +212,14 @@ async def buson(interaction: discord.Interaction, discord: Optional[discord.Memb
 
 @client.tree.command(description="Indicate providing your own transportation this week")
 async def busoff(interaction: discord.Interaction, discord: Optional[discord.Member]):
+
     bowler = await getBowler(interaction, discord)
 
     if bowler is None:
         return
+    
+    if interaction.user.id != int(bowler.getDiscord()): # only admins can modify other people
+        await makeAdminOnly(interaction)
     
     if bowler.getTransport() == Transport.SELF:
         await interaction.response.send_message("Your transportation mode is already set to self. Use /buson for bus transportation.")
@@ -206,6 +236,9 @@ def formatCount(numRostered, numSub):
     team="Assign a rostered player to a new team, or a sub temporarily to a team. Use 0 to unassign a sub."
 )
 async def assign(interaction: discord.Interaction, discord: discord.Member, team: int):
+    
+    await makeAdminOnly(interaction)
+    
     bowler = await getBowler(interaction, discord)
 
     # cast to None since discord command only allows ints
@@ -289,6 +322,9 @@ async def lineup(interaction: discord.Interaction):
 
 @client.tree.command(description="Reset the lineup to original roster and opt-ins/opt-outs for the week")    
 async def reset(interaction: discord.Interaction):
+    
+    await makeAdminOnly(interaction)
+    
     rou.deleteTable()
     rou.createTable()
     soi.deleteTable()
