@@ -287,6 +287,14 @@ async def lineup(interaction: discord.Interaction):
     allowed = discord.AllowedMentions.none()
     await interaction.response.send_message(response, allowed_mentions = allowed)
 
+@client.tree.command(description="Reset the lineup to original roster and opt-ins/opt-outs for the week")    
+async def reset(interaction: discord.Interaction):
+    rou.deleteTable()
+    rou.createTable()
+    soi.deleteTable()
+    soi.createTable()
+    await interaction.response.send_message("Lineup reset to original roster. Subs can use `/optin` to opt in.")
+    
 
 @client.tree.command()
 async def help(interaction: discord.Interaction):
