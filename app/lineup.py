@@ -51,7 +51,7 @@ class Lineup:
             LEFT JOIN SOIBowlers S ON B.bowlerID = S.bowlerID
             LEFT JOIN ROUBowlers R ON B.bowlerID = R.bowlerID
             WHERE B.commitment = 'rostered' OR S.team IS NOT NULL
-            ORDER BY S.team ASC;
+            ORDER BY team ASC;
         """
 
         cur.execute(TEAMS)
