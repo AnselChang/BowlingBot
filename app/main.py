@@ -65,8 +65,12 @@ def generateProfileEmbed(bowler: Bowler):
 
     commit = f"Rostered (Team {bowler.getTeam()})" if bowler.getCommitment() == Commitment.ROSTERED else "Substitute"
     embed=discord.Embed(
-        title=f"{bowler.getFullName()} ~ {bowler.getEmail()}",
+        title=f"{bowler.getFullName()}",
         description=commit, color=0x852acf)
+    
+    embed.add_field(
+        name="Email", value = bowler.getEmail(), inline=False)
+
 
     transport = "Bus" if bowler.getTransport() == Transport.BUS else "Other"
     embed.add_field(
