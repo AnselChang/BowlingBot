@@ -17,7 +17,10 @@ CREATE TABLE Bowlers (
             transport TEXT CHECK (transport IN ('bus', 'self')),
             team INTEGER NULL
         );
-INSERT INTO "Bowlers" VALUES(3,'Ansel','Chang','aychang@wpi.edu','450748389001265186','rostered','bus',1);
+INSERT INTO "Bowlers" VALUES(6,'Winthrop','Golembewski','wmgolembewski@wpi.edu','272474723609477131','rostered','bus',1);
+INSERT INTO "Bowlers" VALUES(7,'William','Gerlach','wsgerlach@wpi.edu','363726116403544065','rostered','bus',1);
+INSERT INTO "Bowlers" VALUES(8,'Brady','Litton','bmlitton@wpi.edu','198216294972129281','rostered','bus',1);
+INSERT INTO "Bowlers" VALUES(11,'Akiva','Siegall','krsiegall@wpi.edu','242490141309009920','sub','self','NULL');
 CREATE TABLE Dates (
             dateID INTEGER PRIMARY KEY AUTOINCREMENT,
             date TEXT UNIQUE,
@@ -57,7 +60,7 @@ CREATE TABLE SessionBowlers (
         );
 DELETE FROM "sqlite_sequence";
 INSERT INTO "sqlite_sequence" VALUES('Dates',9);
-INSERT INTO "sqlite_sequence" VALUES('Bowlers',3);
+INSERT INTO "sqlite_sequence" VALUES('Bowlers',11);
 INSERT INTO "sqlite_sequence" VALUES('ROUBowlers',1);
 INSERT INTO "sqlite_sequence" VALUES('SOIBowlers',1);
 COMMIT;

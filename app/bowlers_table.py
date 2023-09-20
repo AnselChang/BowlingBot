@@ -13,7 +13,7 @@ class BowlersTable(BowlersSubsetTable):
             bowlerID INTEGER PRIMARY KEY AUTOINCREMENT,
             firstName TEXT NOT NULL,
             lastName TEXT NOT NULL,
-            email TEXT NOT NULL UNIQUE,
+            email TEXT DEFAULT '[Not set]',
             discord TEXT NOT NULL UNIQUE,
             commitment TEXT CHECK (commitment IN ('rostered', 'sub')),
             transport TEXT CHECK (transport IN ('bus', 'self')),
@@ -23,21 +23,19 @@ class BowlersTable(BowlersSubsetTable):
 
         super().__init__(con, cur, "Bowlers", CREATE_BOWLER)
 
+    # team = 0 for subs. team number for rostered
+    def addBowler(self, fname: str, lname: str, discord: str, team: int) -> Bowler:
 
-    def addBowler(self, fname: str, lname: str, email: str, discord: str, commitment: Commitment, team: int | None = None, transport: Transport = Transport.BUS) -> Bowler:
-
-        if commitment == Commitment.ROSTERED and team is None:
-            print("Rostered bowler must have a team")
-            return "Error: Rostered bowler must have a team"
-        
-        if commitment == Commitment.SUB and team is not None:
-            print("Substitute bowler cannot have a team")
-            return "Error: Substitute bowler cannot have a team"
+        if team == 0:
+            commitment = Commitment.SUB
+            team = None
+        else:
+            commitment = Commitment.ROSTERED
 
         try:
             self.cur.execute(
-                f"INSERT INTO {self.tableName} (firstName, lastName, email, discord, commitment, transport, team) VALUES (?, ?, ?, ?, ?, ?, ?)",
-                (fname, lname, email, discord, commitment.value, transport.value, team if team is not None else "NULL")
+                f"INSERT INTO {self.tableName} (firstName, lastName, discord, commitment, transport, team) VALUES (?, ?, ?, ?, ?, ?)",
+                (fname, lname, discord, commitment.value, Transport.BUS.value, team)
             )
             self.con.commit()
         except:

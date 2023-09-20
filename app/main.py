@@ -104,15 +104,9 @@ async def profile(interaction: discord.Interaction, discord: Optional[discord.Me
     discord="Your @discord",
     fname='Your first name',
     lname='Your last name',
-    email='Your WPI email',
-    commitment='Whether you are a rostered player or a substitute',
-    team='For rostered players, your team number.'
+    team='For rostered players, your team number. For substitutes, 0.'
 )
-@app_commands.choices(commitment=[
-    app_commands.Choice(name="rostered", value="rostered"),
-    app_commands.Choice(name="sub", value="sub"),
-])
-async def register(interaction: discord.Interaction, discord: discord.Member, fname: str, lname:str, email: str, commitment: str, team: int | None = None):
+async def register(interaction: discord.Interaction, discord: discord.Member, fname: str, lname:str, team: int):
     
     if discord.id != interaction.user.id: # only admins can modify other people
         await makeAdminOnly(interaction)
@@ -120,7 +114,7 @@ async def register(interaction: discord.Interaction, discord: discord.Member, fn
     bowler = bowlers.getBowlerByDiscord(discord.id)
 
     if bowler is None:
-        bowler = bowlers.addBowler(fname, lname, email, discord.id, Commitment(commitment), team)
+        bowler = bowlers.addBowler(fname, lname, discord.id, team)
         if isinstance(bowler, str): # error message
             await interaction.response.send_message(bowler)
             return
@@ -230,6 +224,21 @@ async def busoff(interaction: discord.Interaction, discord: Optional[discord.Mem
         bowler.setTransport(Transport.SELF)
         await interaction.response.send_message("Your transportation mode has been set to self.")
     
+
+@client.tree.command(description="Set the email address for a bowler")
+async def email(interaction: discord.Interaction, discord: Optional[discord.Member], email: str):
+    
+    bowler = await getBowler(interaction, discord)
+
+    if bowler is None:
+        return
+    
+    if interaction.user.id != int(bowler.getDiscord()):
+        await makeAdminOnly(interaction)
+
+    bowler.setEmail(email)
+    await interaction.response.send_message("Email address updated.", embed=generateProfileEmbed(bowler))
+
 def formatCount(numRostered, numSub):
     total = numRostered + numSub
     return f"{total} bowlers ({numRostered} rostered, {numSub} subs)\n"
@@ -407,8 +416,6 @@ async def help(interaction: discord.Interaction):
         name="/backup", value = "Back up the database as an .sql file", inline=False)
     
     await interaction.response.send_message(embed=embed)
-    
-#resetDatabase()
 
 # EXECUTES THE BOT WITH THE SPECIFIED TOKEN.
 client.run(passwords.TOKEN)
