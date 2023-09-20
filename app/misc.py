@@ -12,12 +12,13 @@ class BowlerDisplayInfo:
         response = "(SUB) " if showSub else ""
 
         if absent:
-            response += f"~~{self.fullName}~~\n"
-            return response
+            response += f"~~{self.fullName}~~"
+        else:
+            response += f"{self.fullName}"
+            
+        response += f" <@{self.discord}>"
 
-        response += f"{self.fullName} <@{self.discord}>"
-
-        if self.transport == Transport.SELF:
+        if not absent and self.transport == Transport.SELF:
             response += " (NOT BUS)"
         
         return response + "\n"

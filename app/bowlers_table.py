@@ -13,7 +13,7 @@ class BowlersTable(BowlersSubsetTable):
             bowlerID INTEGER PRIMARY KEY AUTOINCREMENT,
             firstName TEXT NOT NULL,
             lastName TEXT NOT NULL,
-            email TEXT DEFAULT '[Not set]',
+            email TEXT DEFAULT '[Email not set]',
             discord TEXT NOT NULL UNIQUE,
             commitment TEXT CHECK (commitment IN ('rostered', 'sub')),
             transport TEXT CHECK (transport IN ('bus', 'self')),
@@ -34,8 +34,8 @@ class BowlersTable(BowlersSubsetTable):
 
         try:
             self.cur.execute(
-                f"INSERT INTO {self.tableName} (firstName, lastName, discord, commitment, transport, team) VALUES (?, ?, ?, ?, ?, ?)",
-                (fname, lname, discord, commitment.value, Transport.BUS.value, team)
+                f"INSERT INTO {self.tableName} (firstName, lastName, email, discord, commitment, transport, team) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                (fname, lname, "[Email not set]", discord, commitment.value, Transport.BUS.value, team)
             )
             self.con.commit()
         except:

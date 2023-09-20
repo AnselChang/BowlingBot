@@ -63,7 +63,7 @@ def getBoolEmoji(value: bool) -> str:
 
 def generateProfileEmbed(bowler: Bowler):
 
-    commit = "Rostered Player" if bowler.getCommitment() == Commitment.ROSTERED else "Substitute"
+    commit = f"Rostered (Team {bowler.getTeam()})" if bowler.getCommitment() == Commitment.ROSTERED else "Substitute"
     embed=discord.Embed(
         title=f"{bowler.getFullName()} ~ {bowler.getEmail()}",
         description=commit, color=0x852acf)
