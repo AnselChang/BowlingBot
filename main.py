@@ -7,6 +7,8 @@ from SOI_table import SOITable
 from lineup import Lineup
 from misc import BowlerDisplayInfo
 import passwords
+import csv_writer
+import io
 
 
 import discord
@@ -262,7 +264,16 @@ async def assign(interaction: discord.Interaction, discord: discord.Member, team
 Show all the rostered teams
 """
 @client.tree.command(description="Show the master bowling league roster and list of substitutes")
-async def teams(interaction: discord.Interaction):
+@app_commands.choices(options=[
+    app_commands.Choice(name="csv", value="csv"),
+])
+async def teams(interaction: discord.Interaction, options: Optional[str] = None):
+
+    # write to csv and attach file instead
+    if options is not None:
+        filename = csv_writer.csvRoster(cur)
+        await interaction.response.send_message(file=discord.File(filename))
+        return
     
     response = "**WPI LEAGUE ROSTER**\n"
     response += formatCount(bowlers.countRostered(), bowlers.countSubs())
@@ -289,7 +300,16 @@ async def teams(interaction: discord.Interaction):
     await interaction.response.send_message(response, allowed_mentions = allowed)
 
 @client.tree.command(description="Show the bowling league lineup for this week")
-async def lineup(interaction: discord.Interaction):
+@app_commands.choices(options=[
+    app_commands.Choice(name="csv", value="csv"),
+])
+async def lineup(interaction: discord.Interaction, options: Optional[str] = None):
+
+    # write to csv and attach file instead
+    if options is not None:
+        filename = csv_writer.csvLineup(cur)
+        await interaction.response.send_message(file=discord.File(filename))
+        return
 
     response = "**LINEUP FOR DATE**\n"
     response += formatCount(bowlers.countRostered() - rou.count(), soi.count())
@@ -330,7 +350,16 @@ async def reset(interaction: discord.Interaction):
     soi.deleteTable()
     soi.createTable()
     await interaction.response.send_message("Lineup reset to original roster. Subs can use `/optin` to opt in.")
-    
+
+@client.tree.command(description="Back up database")
+async def backup(interaction: discord.Interaction):
+
+    filename = "export/backup.sql"
+    with io.open(filename, 'w') as p:
+        for line in con.iterdump():
+            p.write('%s\n' % line)
+
+    await interaction.response.send_message(file=discord.File(filename))
 
 @client.tree.command(description="Show all BowlingBot commands")
 async def help(interaction: discord.Interaction):
@@ -369,6 +398,12 @@ async def help(interaction: discord.Interaction):
     
     embed.add_field(
         name="/lineup", value = "View the lineup for this week", inline=False)
+    
+    embed.add_field(
+        name="/reset", value = "Reset the lineup to original roster and opt-ins/opt-outs for the week. Useful between bowling weeks", inline=False)
+    
+    embed.add_field(
+        name="/backup", value = "Back up the database as an .sql file", inline=False)
     
     await interaction.response.send_message(embed=embed)
     
