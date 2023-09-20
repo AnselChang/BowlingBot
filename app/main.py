@@ -114,7 +114,8 @@ async def profile(interaction: discord.Interaction, discord: Optional[discord.Me
 ])
 async def register(interaction: discord.Interaction, discord: discord.Member, fname: str, lname:str, email: str, commitment: str, team: int | None = None):
     
-    await makeAdminOnly(interaction)
+    if discord.id != interaction.user.id: # only admins can modify other people
+        await makeAdminOnly(interaction)
 
     bowler = bowlers.getBowlerByDiscord(discord.id)
 
@@ -141,12 +142,12 @@ async def getBowler(interaction: discord.Interaction, discord: discord.Member) -
 @client.tree.command(description="Unregister a bowler. Removes all data associated with the bowler.")
 async def unregister(interaction: discord.Interaction, discord: Optional[discord.Member]):
     
-    await makeAdminOnly(interaction)
-    
     bowler = await getBowler(interaction, discord)
 
     if bowler is None:
         return
+    if interaction.user.id != int(bowler.getDiscord()): # only admins can modify other people
+        await makeAdminOnly(interaction)
 
     bowlers.removeBowler(bowler)
     await interaction.response.send_message("Profile unregistered. Use `/register` to register a new profile.")
