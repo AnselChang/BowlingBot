@@ -48,7 +48,7 @@ class BowlersTable(BowlersSubsetTable):
     def getRosterTeams(self) -> dict[int, list[Bowler]]:
 
         teams = {}
-        for bowler in self.get(condition = "commitment = 'rostered'"):
+        for bowler in self.get(condition = "commitment = 'rostered'", order = "team ASC"):
 
             team = bowler.getTeam()
             if team not in teams:

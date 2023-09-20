@@ -45,12 +45,15 @@ class BowlersSubsetTable(SqlTable):
 
         return self.cur.fetchone()[0] == 1
 
-    def get(self, condition: str | None = None) -> list[Bowler]:
+    def get(self, condition: str | None = None, order: str | None = None) -> list[Bowler]:
 
-        select = "SELECT bowlerID FROM BOWLERS"
+        select = f"SELECT bowlerID FROM {self.tableName}"
 
         if condition is not None:
             select += " WHERE " + condition
+
+        if order is not None:
+            select += " ORDER BY " + order
 
         self.cur.execute(select)
         bowlerIDs = self.cur.fetchall()
