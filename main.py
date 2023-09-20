@@ -76,7 +76,7 @@ def generateProfileEmbed(bowler: Bowler):
 
     return embed
 
-@client.tree.command()
+@client.tree.command(description="View a bowler profile")
 async def profile(interaction: discord.Interaction, discord: Optional[discord.Member]):
 
     discordID = interaction.user.id if discord is None else discord.id
@@ -88,7 +88,7 @@ async def profile(interaction: discord.Interaction, discord: Optional[discord.Me
     
     await interaction.response.send_message(embed=generateProfileEmbed(bowler))
 
-@client.tree.command()
+@client.tree.command(description="Register a bowler as a rostered player or substitute")
 @app_commands.describe(
     discord="Your @discord",
     fname='Your first name',
@@ -124,7 +124,7 @@ async def getBowler(interaction: discord.Interaction, discord: discord.Member) -
         return None
     return bowler
 
-@client.tree.command()
+@client.tree.command(description="Unregister a bowler. Removes all data associated with the bowler.")
 async def unregister(interaction: discord.Interaction, discord: Optional[discord.Member]):
     bowler = await getBowler(interaction, discord)
 
@@ -134,7 +134,7 @@ async def unregister(interaction: discord.Interaction, discord: Optional[discord
     bowlers.removeBowler(bowler)
     await interaction.response.send_message("Profile unregistered. Use `/register` to register a new profile.")
 
-@client.tree.command()
+@client.tree.command(description="Opt in to bowling this week")
 async def optin(interaction: discord.Interaction, discord: Optional[discord.Member]):
     bowler = await getBowler(interaction, discord)
 
@@ -152,7 +152,7 @@ async def optin(interaction: discord.Interaction, discord: Optional[discord.Memb
 
         await interaction.response.send_message("You are now opted in. Use `/optout` to opt out.")
 
-@client.tree.command()
+@client.tree.command(description="Opt out of bowling this week")
 async def optout(interaction: discord.Interaction, discord: Optional[discord.Member]):
     bowler = await getBowler(interaction, discord)
 
@@ -171,7 +171,7 @@ async def optout(interaction: discord.Interaction, discord: Optional[discord.Mem
         await interaction.response.send_message("You are now opted out. Use `/optin` to opt in.")
 
 
-@client.tree.command()
+@client.tree.command(description="Indicate taking WPI bus transportation this week")
 async def buson(interaction: discord.Interaction, discord: Optional[discord.Member]):
     bowler = await getBowler(interaction, discord)
 
@@ -184,7 +184,7 @@ async def buson(interaction: discord.Interaction, discord: Optional[discord.Memb
         bowler.setTransport(Transport.BUS)
         await interaction.response.send_message("Your transportation mode has been set to bus.")
 
-@client.tree.command()
+@client.tree.command(description="Indicate providing your own transportation this week")
 async def busoff(interaction: discord.Interaction, discord: Optional[discord.Member]):
     bowler = await getBowler(interaction, discord)
 
@@ -201,7 +201,7 @@ def formatCount(numRostered, numSub):
     total = numRostered + numSub
     return f"{total} bowlers ({numRostered} rostered, {numSub} subs)\n"
 
-@client.tree.command()
+@client.tree.command(description="Adjust the master roster for rostered players, or lineup for substitutes")
 @app_commands.describe(
     team="Assign a rostered player to a new team, or a sub temporarily to a team. Use 0 to unassign a sub."
 )
@@ -228,7 +228,7 @@ async def assign(interaction: discord.Interaction, discord: discord.Member, team
 """
 Show all the rostered teams
 """
-@client.tree.command()
+@client.tree.command(description="Show the master bowling league roster and list of substitutes")
 async def teams(interaction: discord.Interaction):
     
     response = "**WPI LEAGUE ROSTER**\n"
@@ -255,7 +255,7 @@ async def teams(interaction: discord.Interaction):
     allowed = discord.AllowedMentions.none()
     await interaction.response.send_message(response, allowed_mentions = allowed)
 
-@client.tree.command()
+@client.tree.command(description="Show the bowling league lineup for this week")
 async def lineup(interaction: discord.Interaction):
 
     response = "**LINEUP FOR DATE**\n"
@@ -296,7 +296,7 @@ async def reset(interaction: discord.Interaction):
     await interaction.response.send_message("Lineup reset to original roster. Subs can use `/optin` to opt in.")
     
 
-@client.tree.command()
+@client.tree.command(description="Show all BowlingBot commands")
 async def help(interaction: discord.Interaction):
 
     embed=discord.Embed(
