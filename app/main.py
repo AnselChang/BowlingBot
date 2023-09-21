@@ -1,6 +1,8 @@
+from enum import Enum
 from typing import Optional
 from bowler import Bowler
 from bowlers_table import BowlersTable
+from canon_handler import Message, loadCanonData, saveCanonData
 from enums import Commitment, Transport
 from ROU_table import ROUTable
 from SOI_table import SOITable
@@ -9,6 +11,7 @@ from misc import BowlerDisplayInfo
 import passwords
 import csv_writer
 import io
+import json
 
 
 import discord
@@ -58,6 +61,24 @@ async def on_ready():
     print(f'Logged in as {client.user} (ID: {client.user.id})')
     print('------')
 
+# convert a message object to a discord.Message object, if it still exists
+async def getMessageObject(message: Message) -> discord.Message | None:
+    try:
+        channel = await client.get_channel(message.channelID)
+        return await channel.fetch_message(message.messageID)
+    except:
+        return
+    
+# Updates all messages in a list of messages with the same content, if message still exists
+async def updateMessages(messages: list[Message], content: str):
+    for message in messages:
+        discordMessage = await getMessageObject(message)
+        if discordMessage is None:
+            continue
+
+        await discordMessage.edit(content=content)
+    
+
 def getBoolEmoji(value: bool) -> str:
     return ":white_check_mark:" if value else ":x:"
 
@@ -103,30 +124,6 @@ async def profile(interaction: discord.Interaction, discord: Optional[discord.Me
     
     await interaction.response.send_message(embed=generateProfileEmbed(bowler))
 
-@client.tree.command(description="Register a bowler as a rostered player or substitute")
-@app_commands.describe(
-    discord="Your @discord",
-    fname='Your first name',
-    lname='Your last name',
-    team='For rostered players, your team number. For substitutes, 0.'
-)
-async def register(interaction: discord.Interaction, discord: discord.Member, fname: str, lname:str, team: int):
-    
-    if discord.id != interaction.user.id: # only admins can modify other people
-        await makeAdminOnly(interaction)
-
-    bowler = bowlers.getBowlerByDiscord(discord.id)
-
-    if bowler is None:
-        bowler = bowlers.addBowler(fname, lname, discord.id, team)
-        if isinstance(bowler, str): # error message
-            await interaction.response.send_message(bowler)
-            return
-
-        await interaction.response.send_message("Profile registered.", embed=generateProfileEmbed(bowler))
-    else:
-        await interaction.response.send_message("Profile already registered. Use `/unregister` to unregister.")
-
 async def getBowler(interaction: discord.Interaction, discord: discord.Member) -> Bowler | None:
     discordID = interaction.user.id if discord is None else discord.id
     bowler = bowlers.getBowlerByDiscord(discordID)
@@ -137,158 +134,9 @@ async def getBowler(interaction: discord.Interaction, discord: discord.Member) -
 
     return bowler
 
-@client.tree.command(description="Unregister a bowler. Removes all data associated with the bowler.")
-async def unregister(interaction: discord.Interaction, discord: Optional[discord.Member]):
-    
-    bowler = await getBowler(interaction, discord)
+# Generate the teams string
+def getTeamsString() -> str:
 
-    if bowler is None:
-        return
-    if interaction.user.id != int(bowler.getDiscord()): # only admins can modify other people
-        await makeAdminOnly(interaction)
-
-    bowlers.removeBowler(bowler)
-    await interaction.response.send_message("Profile unregistered. Use `/register` to register a new profile.")
-
-@client.tree.command(description="Opt in to bowling this week")
-async def optin(interaction: discord.Interaction, discord: Optional[discord.Member]):
-
-    bowler = await getBowler(interaction, discord)
-
-    if bowler is None:
-        return
-    if interaction.user.id != int(bowler.getDiscord()): # only admins can modify other people
-        await makeAdminOnly(interaction)
-
-    if bowler.isInSession():
-        await interaction.response.send_message("You are already opted in. Use `/optout` to opt out.")
-
-    else:
-        if bowler.getCommitment() == Commitment.ROSTERED:
-            rou.removeBowler(bowler)
-        else:
-            soi.addBowler(bowler)
-
-        await interaction.response.send_message("You are now opted in. Use `/optout` to opt out.")
-
-@client.tree.command(description="Opt out of bowling this week")
-async def optout(interaction: discord.Interaction, discord: Optional[discord.Member]):
-    
-    bowler = await getBowler(interaction, discord)
-
-    if bowler is None:
-        return
-    
-    if interaction.user.id != int(bowler.getDiscord()): # only admins can modify other people
-        await makeAdminOnly(interaction)
-
-    if not bowler.isInSession():
-        await interaction.response.send_message("You are already opted out. Use `/optin` to opt in.")
-
-    else:
-        if bowler.getCommitment() == Commitment.SUB:
-            soi.removeBowler(bowler)
-        else:
-            rou.addBowler(bowler)
-
-        await interaction.response.send_message("You are now opted out. Use `/optin` to opt in.")
-
-
-@client.tree.command(description="Indicate taking WPI bus transportation this week")
-async def buson(interaction: discord.Interaction, discord: Optional[discord.Member]):
-    
-    bowler = await getBowler(interaction, discord)
-
-    if bowler is None:
-        return
-    
-    if interaction.user.id != int(bowler.getDiscord()): # only admins can modify other people
-        await makeAdminOnly(interaction)
-    
-    if bowler.getTransport() == Transport.BUS:
-        await interaction.response.send_message("Your transportation mode is already set to bus. Use `/busoff` for self-transportation.")
-    else:
-        bowler.setTransport(Transport.BUS)
-        await interaction.response.send_message("Your transportation mode has been set to bus.")
-
-@client.tree.command(description="Indicate providing your own transportation this week")
-async def busoff(interaction: discord.Interaction, discord: Optional[discord.Member]):
-
-    bowler = await getBowler(interaction, discord)
-
-    if bowler is None:
-        return
-    
-    if interaction.user.id != int(bowler.getDiscord()): # only admins can modify other people
-        await makeAdminOnly(interaction)
-    
-    if bowler.getTransport() == Transport.SELF:
-        await interaction.response.send_message("Your transportation mode is already set to self. Use /buson for bus transportation.")
-    else:
-        bowler.setTransport(Transport.SELF)
-        await interaction.response.send_message("Your transportation mode has been set to self.")
-    
-
-@client.tree.command(description="Set the email address for a bowler")
-async def email(interaction: discord.Interaction, discord: Optional[discord.Member], email: str):
-    
-    bowler = await getBowler(interaction, discord)
-
-    if bowler is None:
-        return
-    
-    if interaction.user.id != int(bowler.getDiscord()):
-        await makeAdminOnly(interaction)
-
-    bowler.setEmail(email)
-    await interaction.response.send_message("Email address updated.", embed=generateProfileEmbed(bowler))
-
-def formatCount(numRostered, numSub):
-    total = numRostered + numSub
-    return f"{total} bowlers ({numRostered} rostered, {numSub} subs)\n"
-
-@client.tree.command(description="Adjust the master roster for rostered players, or lineup for substitutes")
-@app_commands.describe(
-    team="Assign a rostered player to a new team, or a sub temporarily to a team. Use 0 to unassign a sub."
-)
-async def assign(interaction: discord.Interaction, discord: discord.Member, team: int):
-    
-    await makeAdminOnly(interaction)
-    
-    bowler = await getBowler(interaction, discord)
-
-    # cast to None since discord command only allows ints
-    if team == 0:
-        team = None
-
-    if bowler.getCommitment() == Commitment.ROSTERED:
-        if team is None:
-            await interaction.response.send_message("Rostered players must have a team.")
-            return
-        bowlers.assignTeam(bowler, team)
-        await interaction.response.send_message(f"{bowler.getFullName()} successfully moved to team {team}. See `/teams` for the updated roster.")
-    else:
-        if not bowler.isInSession():
-            await interaction.response.send_message("Substitutes must be opted in this week to be assigned to a temporary team.")
-            return
-        soi.assignTeam(bowler, team)
-        await interaction.response.send_message(f"{bowler.getFullName()} successfully assigned to team {team} for this week. See `/lineup` for the updated lineup.")
-    
-"""
-Show all the rostered teams
-"""
-@client.tree.command(description="Show the master bowling league roster and list of substitutes")
-@app_commands.choices(options=[
-    app_commands.Choice(name="csv", value="csv"),
-])
-async def teams(interaction: discord.Interaction, options: Optional[str] = None):
-
-    # write to csv and attach file instead
-    if options is not None:
-        filename = csv_writer.csvRoster(cur)
-        await interaction.response.send_message(file=discord.File(filename))
-        return
-    
     response = "**WPI LEAGUE ROSTER**\n"
     response += formatCount(bowlers.countRostered(), bowlers.countSubs())
 
@@ -309,21 +157,11 @@ async def teams(interaction: discord.Interaction, options: Optional[str] = None)
         response += f"{name} <@{bowler.getDiscord()}>\n"
     if len(subs) == 0:
         response += "[None]\n"
-    
-    allowed = discord.AllowedMentions.none()
-    await interaction.response.send_message(response, allowed_mentions = allowed)
 
-@client.tree.command(description="Show the bowling league lineup for this week")
-@app_commands.choices(options=[
-    app_commands.Choice(name="csv", value="csv"),
-])
-async def lineup(interaction: discord.Interaction, options: Optional[str] = None):
+    return response
 
-    # write to csv and attach file instead
-    if options is not None:
-        filename = csv_writer.csvLineup(cur)
-        await interaction.response.send_message(file=discord.File(filename))
-        return
+# Generate the lineup string
+def getLineupString() -> str:
 
     response = "**LINEUP FOR DATE**\n"
     response += formatCount(bowlers.countRostered() - rou.count(), soi.count())
@@ -351,8 +189,253 @@ async def lineup(interaction: discord.Interaction, options: Optional[str] = None
     if len(overflow) == 0:
         response += "[None]\n"
 
+    return response
+
+
+class PersistentMessageType(Enum):
+    ROSTER = 1
+    LINEUP = 2
+
+async def createPersistentMessage(interaction: discord.Interaction, type: PersistentMessageType):
+    await makeAdminOnly(interaction) # only admins can do this
+
+    await interaction.response.send_message("Creating persistent message. Feel free to delete this message.")
+
+    channel = await client.get_channel(interaction.channel_id)
+    message = await channel.send(getLineupString() if type == PersistentMessageType.LINEUP else getTeamsString())
+
+    canon = loadCanonData()
+    msgs = canon.lineupMessages if type == PersistentMessageType.LINEUP else canon.rosterMessages
+    msgs.append(Message(message.channel.id, message.id))
+    saveCanonData(canon)
+
+
+"""
+Show all the rostered teams
+"""
+@client.tree.command(description="Show the master bowling league roster and list of substitutes")
+@app_commands.choices(options=[
+    app_commands.Choice(name="csv", value="csv"),
+    app_commands.Choice(name="persistent", value="persistent"),
+])
+async def teams(interaction: discord.Interaction, options: Optional[str] = None):
+
+    # write to csv and attach file instead
+    if options == "csv":
+        filename = csv_writer.csvRoster(cur)
+        await interaction.response.send_message(file=discord.File(filename))
+        return
+    elif options == "persistent": # create message that gets persistently edited on changes 
+        await createPersistentMessage(interaction, PersistentMessageType.LINEUP)
+        return
+
+    response = getTeamsString()
+    
     allowed = discord.AllowedMentions.none()
     await interaction.response.send_message(response, allowed_mentions = allowed)
+
+
+@client.tree.command(description="Show the bowling league lineup for this week")
+@app_commands.choices(options=[
+    app_commands.Choice(name="csv", value="csv"),
+    app_commands.Choice(name="persistent", value="persistent"),
+])
+async def lineup(interaction: discord.Interaction, options: Optional[str] = None):
+
+    # write to csv and attach file instead
+    if options == "csv":
+        filename = csv_writer.csvLineup(cur)
+        await interaction.response.send_message(file=discord.File(filename))
+        return
+    elif options == "persistent": # create message that gets persistently edited on changes 
+        await createPersistentMessage(interaction, PersistentMessageType.LINEUP)
+        return 
+
+    response = getLineupString()
+
+    allowed = discord.AllowedMentions.none()
+    await interaction.response.send_message(response, allowed_mentions = allowed)
+
+# Updates all roster and lineup messages stored in canon data with the latest roster and lineup
+async def updateCanon():
+    canon = loadCanonData()
+    await updateMessages(canon.rosterMessages, getTeamsString())
+    await updateMessages(canon.lineupMessages, getLineupString())
+
+@client.tree.command(description="Register a bowler as a rostered player or substitute")
+@app_commands.describe(
+    discord="Your @discord",
+    fname='Your first name',
+    lname='Your last name',
+    team='For rostered players, your team number. For substitutes, 0.'
+)
+async def register(interaction: discord.Interaction, discord: discord.Member, fname: str, lname:str, team: int):
+    
+    if discord.id != interaction.user.id: # only admins can modify other people
+        await makeAdminOnly(interaction)
+
+    bowler = bowlers.getBowlerByDiscord(discord.id)
+
+    if bowler is None:
+        bowler = bowlers.addBowler(fname, lname, discord.id, team)
+        updateCanon()
+        if isinstance(bowler, str): # error message
+            await interaction.response.send_message(bowler)
+            return
+
+        await interaction.response.send_message("Profile registered.", embed=generateProfileEmbed(bowler))
+    else:
+        await interaction.response.send_message("Profile already registered. Use `/unregister` to unregister.")
+
+
+@client.tree.command(description="Unregister a bowler. Removes all data associated with the bowler.")
+async def unregister(interaction: discord.Interaction, discord: Optional[discord.Member]):
+    
+    bowler = await getBowler(interaction, discord)
+
+    if bowler is None:
+        return
+    if interaction.user.id != int(bowler.getDiscord()): # only admins can modify other people
+        await makeAdminOnly(interaction)
+
+    bowlers.removeBowler(bowler)
+    updateCanon()
+
+    await interaction.response.send_message("Profile unregistered. Use `/register` to register a new profile.")
+
+@client.tree.command(description="Opt in to bowling this week")
+async def optin(interaction: discord.Interaction, discord: Optional[discord.Member]):
+
+    bowler = await getBowler(interaction, discord)
+
+    if bowler is None:
+        return
+    if interaction.user.id != int(bowler.getDiscord()): # only admins can modify other people
+        await makeAdminOnly(interaction)
+
+    if bowler.isInSession():
+        await interaction.response.send_message("You are already opted in. Use `/optout` to opt out.")
+
+    else:
+        if bowler.getCommitment() == Commitment.ROSTERED:
+            rou.removeBowler(bowler)
+        else:
+            soi.addBowler(bowler)
+
+        updateCanon()   
+
+        await interaction.response.send_message("You are now opted in. Use `/optout` to opt out.")
+
+@client.tree.command(description="Opt out of bowling this week")
+async def optout(interaction: discord.Interaction, discord: Optional[discord.Member]):
+    
+    bowler = await getBowler(interaction, discord)
+
+    if bowler is None:
+        return
+    
+    if interaction.user.id != int(bowler.getDiscord()): # only admins can modify other people
+        await makeAdminOnly(interaction)
+
+    if not bowler.isInSession():
+        await interaction.response.send_message("You are already opted out. Use `/optin` to opt in.")
+
+    else:
+        if bowler.getCommitment() == Commitment.SUB:
+            soi.removeBowler(bowler)
+        else:
+            rou.addBowler(bowler)
+
+        updateCanon()
+
+        await interaction.response.send_message("You are now opted out. Use `/optin` to opt in.")
+
+
+@client.tree.command(description="Indicate taking WPI bus transportation this week")
+async def buson(interaction: discord.Interaction, discord: Optional[discord.Member]):
+    
+    bowler = await getBowler(interaction, discord)
+
+    if bowler is None:
+        return
+    
+    if interaction.user.id != int(bowler.getDiscord()): # only admins can modify other people
+        await makeAdminOnly(interaction)
+    
+    if bowler.getTransport() == Transport.BUS:
+        await interaction.response.send_message("Your transportation mode is already set to bus. Use `/busoff` for self-transportation.")
+    else:
+        bowler.setTransport(Transport.BUS)
+        updateCanon()
+        await interaction.response.send_message("Your transportation mode has been set to bus.")
+
+@client.tree.command(description="Indicate providing your own transportation this week")
+async def busoff(interaction: discord.Interaction, discord: Optional[discord.Member]):
+
+    bowler = await getBowler(interaction, discord)
+
+    if bowler is None:
+        return
+    
+    if interaction.user.id != int(bowler.getDiscord()): # only admins can modify other people
+        await makeAdminOnly(interaction)
+    
+    if bowler.getTransport() == Transport.SELF:
+        await interaction.response.send_message("Your transportation mode is already set to self. Use /buson for bus transportation.")
+    else:
+        bowler.setTransport(Transport.SELF)
+        updateCanon()
+        await interaction.response.send_message("Your transportation mode has been set to self.")
+    
+
+@client.tree.command(description="Set the email address for a bowler")
+async def email(interaction: discord.Interaction, discord: Optional[discord.Member], email: str):
+    
+    bowler = await getBowler(interaction, discord)
+
+    if bowler is None:
+        return
+    
+    if interaction.user.id != int(bowler.getDiscord()):
+        await makeAdminOnly(interaction)
+
+    bowler.setEmail(email)
+    updateCanon()
+    await interaction.response.send_message("Email address updated.", embed=generateProfileEmbed(bowler))
+
+def formatCount(numRostered, numSub):
+    total = numRostered + numSub
+    return f"{total} bowlers ({numRostered} rostered, {numSub} subs)\n"
+
+@client.tree.command(description="Adjust the master roster for rostered players, or lineup for substitutes")
+@app_commands.describe(
+    team="Assign a rostered player to a new team, or a sub temporarily to a team. Use 0 to unassign a sub."
+)
+async def assign(interaction: discord.Interaction, discord: discord.Member, team: int):
+    
+    await makeAdminOnly(interaction)
+    
+    bowler = await getBowler(interaction, discord)
+
+    # cast to None since discord command only allows ints
+    if team == 0:
+        team = None
+
+    if bowler.getCommitment() == Commitment.ROSTERED:
+        if team is None:
+            await interaction.response.send_message("Rostered players must have a team.")
+            return
+        bowlers.assignTeam(bowler, team)
+        updateCanon()
+        await interaction.response.send_message(f"{bowler.getFullName()} successfully moved to team {team}. See `/teams` for the updated roster.")
+    else:
+        if not bowler.isInSession():
+            await interaction.response.send_message("Substitutes must be opted in this week to be assigned to a temporary team.")
+            return
+        soi.assignTeam(bowler, team)
+        updateCanon()
+        await interaction.response.send_message(f"{bowler.getFullName()} successfully assigned to team {team} for this week. See `/lineup` for the updated lineup.")
+    
 
 @client.tree.command(description="Reset the lineup to original roster and opt-ins/opt-outs for the week")    
 async def reset(interaction: discord.Interaction):
@@ -363,6 +446,7 @@ async def reset(interaction: discord.Interaction):
     rou.createTable()
     soi.deleteTable()
     soi.createTable()
+    updateCanon()
     await interaction.response.send_message("Lineup reset to original roster. Subs can use `/optin` to opt in.")
 
 @client.tree.command(description="Back up database")
