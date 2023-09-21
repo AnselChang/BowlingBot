@@ -25,6 +25,8 @@ def loadCanonData() -> CanonData:
         for messageData in data["lineupMessageIDs"]:
             canonData.lineupMessages.append(Message(messageData["channelID"], messageData["messageID"]))    
 
+    return canonData
+
 def saveCanonData(data: CanonData):
     with open("canon_data.json", "w") as f:
         

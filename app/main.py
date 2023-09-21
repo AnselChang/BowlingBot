@@ -64,7 +64,7 @@ async def on_ready():
 # convert a message object to a discord.Message object, if it still exists
 async def getMessageObject(message: Message) -> discord.Message | None:
     try:
-        channel = await client.get_channel(message.channelID)
+        channel = client.get_channel(message.channelID)
         return await channel.fetch_message(message.messageID)
     except:
         return
@@ -201,7 +201,7 @@ async def createPersistentMessage(interaction: discord.Interaction, type: Persis
 
     await interaction.response.send_message("Creating persistent message. Feel free to delete this message.")
 
-    channel = await client.get_channel(interaction.channel_id)
+    channel = client.get_channel(interaction.channel_id)
     message = await channel.send(getLineupString() if type == PersistentMessageType.LINEUP else getTeamsString())
 
     canon = loadCanonData()
@@ -226,7 +226,7 @@ async def teams(interaction: discord.Interaction, options: Optional[str] = None)
         await interaction.response.send_message(file=discord.File(filename))
         return
     elif options == "persistent": # create message that gets persistently edited on changes 
-        await createPersistentMessage(interaction, PersistentMessageType.LINEUP)
+        await createPersistentMessage(interaction, PersistentMessageType.ROSTER)
         return
 
     response = getTeamsString()
@@ -278,7 +278,7 @@ async def register(interaction: discord.Interaction, discord: discord.Member, fn
 
     if bowler is None:
         bowler = bowlers.addBowler(fname, lname, discord.id, team)
-        updateCanon()
+        await updateCanon()
         if isinstance(bowler, str): # error message
             await interaction.response.send_message(bowler)
             return
@@ -299,7 +299,7 @@ async def unregister(interaction: discord.Interaction, discord: Optional[discord
         await makeAdminOnly(interaction)
 
     bowlers.removeBowler(bowler)
-    updateCanon()
+    await updateCanon()
 
     await interaction.response.send_message("Profile unregistered. Use `/register` to register a new profile.")
 
@@ -322,7 +322,7 @@ async def optin(interaction: discord.Interaction, discord: Optional[discord.Memb
         else:
             soi.addBowler(bowler)
 
-        updateCanon()   
+        await updateCanon()   
 
         await interaction.response.send_message("You are now opted in. Use `/optout` to opt out.")
 
@@ -346,7 +346,7 @@ async def optout(interaction: discord.Interaction, discord: Optional[discord.Mem
         else:
             rou.addBowler(bowler)
 
-        updateCanon()
+        await updateCanon()
 
         await interaction.response.send_message("You are now opted out. Use `/optin` to opt in.")
 
@@ -366,7 +366,7 @@ async def buson(interaction: discord.Interaction, discord: Optional[discord.Memb
         await interaction.response.send_message("Your transportation mode is already set to bus. Use `/busoff` for self-transportation.")
     else:
         bowler.setTransport(Transport.BUS)
-        updateCanon()
+        await updateCanon()
         await interaction.response.send_message("Your transportation mode has been set to bus.")
 
 @client.tree.command(description="Indicate providing your own transportation this week")
@@ -384,7 +384,7 @@ async def busoff(interaction: discord.Interaction, discord: Optional[discord.Mem
         await interaction.response.send_message("Your transportation mode is already set to self. Use /buson for bus transportation.")
     else:
         bowler.setTransport(Transport.SELF)
-        updateCanon()
+        await updateCanon()
         await interaction.response.send_message("Your transportation mode has been set to self.")
     
 
@@ -400,7 +400,7 @@ async def email(interaction: discord.Interaction, discord: Optional[discord.Memb
         await makeAdminOnly(interaction)
 
     bowler.setEmail(email)
-    updateCanon()
+    await updateCanon()
     await interaction.response.send_message("Email address updated.", embed=generateProfileEmbed(bowler))
 
 def formatCount(numRostered, numSub):
@@ -426,14 +426,14 @@ async def assign(interaction: discord.Interaction, discord: discord.Member, team
             await interaction.response.send_message("Rostered players must have a team.")
             return
         bowlers.assignTeam(bowler, team)
-        updateCanon()
+        await updateCanon()
         await interaction.response.send_message(f"{bowler.getFullName()} successfully moved to team {team}. See `/teams` for the updated roster.")
     else:
         if not bowler.isInSession():
             await interaction.response.send_message("Substitutes must be opted in this week to be assigned to a temporary team.")
             return
         soi.assignTeam(bowler, team)
-        updateCanon()
+        await updateCanon()
         await interaction.response.send_message(f"{bowler.getFullName()} successfully assigned to team {team} for this week. See `/lineup` for the updated lineup.")
     
 
@@ -446,7 +446,7 @@ async def reset(interaction: discord.Interaction):
     rou.createTable()
     soi.deleteTable()
     soi.createTable()
-    updateCanon()
+    await updateCanon()
     await interaction.response.send_message("Lineup reset to original roster. Subs can use `/optin` to opt in.")
 
 @client.tree.command(description="Back up database")
