@@ -271,8 +271,7 @@ async def updateCanon():
 )
 async def register(interaction: discord.Interaction, discord: discord.Member, fname: str, lname:str, team: int):
     
-    if discord.id != interaction.user.id: # only admins can modify other people
-        await makeAdminOnly(interaction)
+    await makeAdminOnly(interaction)
 
     bowler = bowlers.getBowlerByDiscord(discord.id)
 
@@ -291,12 +290,12 @@ async def register(interaction: discord.Interaction, discord: discord.Member, fn
 @client.tree.command(description="Unregister a bowler. Removes all data associated with the bowler.")
 async def unregister(interaction: discord.Interaction, discord: Optional[discord.Member]):
     
+    await makeAdminOnly(interaction)
+
     bowler = await getBowler(interaction, discord)
 
     if bowler is None:
         return
-    if interaction.user.id != int(bowler.getDiscord()): # only admins can modify other people
-        await makeAdminOnly(interaction)
 
     bowlers.removeBowler(bowler)
     await updateCanon()
