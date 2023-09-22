@@ -31,6 +31,8 @@ soi = SOITable(con, cur)
 
 MY_GUILD = discord.Object(id=1012052441757397062)
 
+NO_PINGS = discord.AllowedMentions.none()
+
 class MyClient(discord.Client):
     def __init__(self, intents: discord.Intents):
         super().__init__(intents=intents)
@@ -202,7 +204,7 @@ async def createPersistentMessage(interaction: discord.Interaction, type: Persis
     await interaction.response.send_message("Creating persistent message. Feel free to delete this message.")
 
     channel = client.get_channel(interaction.channel_id)
-    message = await channel.send(getLineupString() if type == PersistentMessageType.LINEUP else getTeamsString())
+    message = await channel.send(getLineupString() if type == PersistentMessageType.LINEUP else getTeamsString(), allowed_mentions = NO_PINGS)
 
     canon = loadCanonData()
     msgs = canon.lineupMessages if type == PersistentMessageType.LINEUP else canon.rosterMessages
@@ -231,8 +233,7 @@ async def teams(interaction: discord.Interaction, options: Optional[str] = None)
 
     response = getTeamsString()
     
-    allowed = discord.AllowedMentions.none()
-    await interaction.response.send_message(response, allowed_mentions = allowed)
+    await interaction.response.send_message(response, allowed_mentions = NO_PINGS)
 
 
 @client.tree.command(description="Show the bowling league lineup for this week")
@@ -253,8 +254,7 @@ async def lineup(interaction: discord.Interaction, options: Optional[str] = None
 
     response = getLineupString()
 
-    allowed = discord.AllowedMentions.none()
-    await interaction.response.send_message(response, allowed_mentions = allowed)
+    await interaction.response.send_message(response, allowed_mentions = NO_PINGS)
 
 # Updates all roster and lineup messages stored in canon data with the latest roster and lineup
 async def updateCanon():
