@@ -33,12 +33,10 @@ def csvLineup(cur) -> str:
 
     SELECT 
         CASE WHEN B.team IS NULL THEN S.team ELSE B.team END AS team,
-        B.firstName,
-        B.lastName,
-        B.discord,
+        (B.firstName || ' ' || B.lastName as name),
         B.commitment,
         B.transport
-    FROM Bowlers B
+    FROM (SELECT * FROM Bowlers WHERE commitment = 'rostered') B
     LEFT JOIN SOIBowlers S ON B.bowlerID = S.bowlerID
     WHERE 
         NOT EXISTS (
@@ -55,9 +53,9 @@ def csvLineup(cur) -> str:
     # write to csv
     with open(filename, "w", newline="") as csvfile:
         writer = csv.writer(csvfile)
-        writer.writerow(["Team", "First Name", "Last Name", "Discord", "Commitment", "Transport", "Attendance"])
+        writer.writerow(["Team", "Name", "Commitment", "Transport", "Attendance"])
         for bowler in bowlers:
-            team, fName, lName, discord, commitment, transport = bowler
-            writer.writerow([team, fName, lName, discord, commitment, transport, ""])
+            team, name, commitment, transport = bowler
+            writer.writerow([team, name, commitment, transport, ""])
 
     return filename
