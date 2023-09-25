@@ -90,7 +90,7 @@ async def updateMessages(messages: list[Message], contents: list[str]):
                 text = contents[i]
             else:
                 text = "."
-            await discordMessages[i].edit(content=text)
+            await discordMessages[i].edit(content=text, allowed_mentions = NO_PINGS)
     
 
 def getBoolEmoji(value: bool) -> str:
