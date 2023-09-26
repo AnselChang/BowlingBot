@@ -33,10 +33,13 @@ def csvLineup(cur) -> str:
 
     SELECT 
         CASE WHEN B.team IS NULL THEN S.team ELSE B.team END AS team,
-        (B.firstName || ' ' || B.lastName as name),
+        (B.firstName || ' ' || B.lastName) AS name,
         B.commitment,
         B.transport
-    FROM (SELECT * FROM Bowlers WHERE commitment = 'rostered') B
+    FROM (SELECT * FROM Bowlers
+        WHERE commitment = 'rostered'
+        OR (commitment = 'sub' AND EXISTS (SELECT 1 FROM SOIBowlers WHERE Bowlers.bowlerID = SOIBowlers.bowlerID))
+        ) B
     LEFT JOIN SOIBowlers S ON B.bowlerID = S.bowlerID
     WHERE 
         NOT EXISTS (
