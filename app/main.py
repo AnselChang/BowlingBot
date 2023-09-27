@@ -150,14 +150,24 @@ async def getBowler(interaction: discord.Interaction, discord: discord.Member) -
 
     return bowler
 
+CUTOFF_TEAM = 15
+
 # Generate the teams string
 def getTeamsString() -> list[str]:
+
+    responses = []
 
     response = "**WPI LEAGUE ROSTER**\n"
     response += formatCount(bowlers.countRostered(), bowlers.countSubs())
 
     teams = bowlers.getRosterTeams()
     for number in teams:
+
+
+        if number == CUTOFF_TEAM:
+            responses.append(response)
+            response = ""
+
         teammates = teams[number]
 
         response += f"\n**TEAM {number}:**\n"
@@ -166,18 +176,25 @@ def getTeamsString() -> list[str]:
             name = teammate.getFullName()
             response += f"{name} <@{teammate.getDiscord()}>\n"
 
-    response2 = ".\n**SUBSTITUTES:**\n"
+    responses.append(response)
+    response = ""
+
+    response += "\n**SUBSTITUTES:**\n"
     subs = bowlers.getSubs()
     for bowler in subs:
         name = bowler.getFullName()
-        response2 += f"{name} <@{bowler.getDiscord()}>\n"
+        response += f"{name} <@{bowler.getDiscord()}>\n"
     if len(subs) == 0:
-        response2 += "[None]\n"
+        response += "[None]\n"
 
-    return [response, response2]
+    responses += response
+
+    return responses
 
 # Generate the lineup string
 def getLineupString() -> list[str]:
+
+    responses = []
 
     response = "**LINEUP FOR DATE**\n"
     response += formatCount(bowlers.countRostered() - rou.count(), soi.count())
@@ -190,6 +207,11 @@ def getLineupString() -> list[str]:
         bowler = Bowler(con, cur, bowlerInfo.id)
 
         if bowlerInfo.team != currentTeam:
+
+            if bowlerInfo.team == CUTOFF_TEAM:
+                responses.append(response)
+                response = ""
+
             currentTeam = bowlerInfo.team
             response += f"\n**TEAM {currentTeam}**\n"
         
@@ -197,15 +219,17 @@ def getLineupString() -> list[str]:
         rosterAbsent = bowlerInfo.commitment == Commitment.ROSTERED and not bowler.isInSession()
         response += display.toString(rosterAbsent, bowlerInfo.commitment == Commitment.SUB)
     
-    response2 = ".\n**OVERFLOW**\n"
+    response += "\n**OVERFLOW**\n"
     overflow = lineup.getOverflow()
     for bowlerInfo in overflow:
         display = BowlerDisplayInfo(bowlerInfo.fullName, bowlerInfo.discord, bowlerInfo.transport)
-        response2 += display.toString(False, False)
+        response += display.toString(False, False)
     if len(overflow) == 0:
-        response2 += "[None]\n"
+        response += "[None]\n"
 
-    return [response, response2]
+    responses.append(response)
+
+    return responses
 
 
 class PersistentMessageType(Enum):
