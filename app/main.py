@@ -140,12 +140,15 @@ async def profile(interaction: discord.Interaction, discord: Optional[discord.Me
     
     await interaction.followup.send(embed=generateProfileEmbed(bowler))
 
-async def getBowler(interaction: discord.Interaction, discord: discord.Member) -> Bowler | None:
+async def getBowler(interaction: discord.Interaction, discord: discord.Member, alreadyDeferred = False) -> Bowler | None:
     discordID = interaction.user.id if discord is None else discord.id
     bowler = bowlers.getBowlerByDiscord(discordID)
 
     if bowler is None:
-        await interaction.response.send_message("No profile registered. Use `/register` to register.")
+        if alreadyDeferred:
+            await interaction.followup.send("No profile registered. Use `/register` to register.")
+        else:
+            await interaction.response.send_message("No profile registered. Use `/register` to register.")
         return None
 
     return bowler
@@ -166,7 +169,7 @@ def getTeamsString() -> list[str]:
 
         if number == CUTOFF_TEAM:
             responses.append(response)
-            response = ""
+            response = "."
 
         teammates = teams[number]
 
@@ -177,7 +180,7 @@ def getTeamsString() -> list[str]:
             response += f"{name} <@{teammate.getDiscord()}>\n"
 
     responses.append(response)
-    response = ""
+    response = "."
 
     response += "\n**SUBSTITUTES:**\n"
     subs = bowlers.getSubs()
@@ -187,7 +190,7 @@ def getTeamsString() -> list[str]:
     if len(subs) == 0:
         response += "[None]\n"
 
-    responses += response
+    responses.append(response)
 
     return responses
 
@@ -210,7 +213,7 @@ def getLineupString() -> list[str]:
 
             if bowlerInfo.team == CUTOFF_TEAM:
                 responses.append(response)
-                response = ""
+                response = "."
 
             currentTeam = bowlerInfo.team
             response += f"\n**TEAM {currentTeam}**\n"
@@ -355,7 +358,7 @@ async def unregister(interaction: discord.Interaction, discord: Optional[discord
 
     await interaction.response.defer(thinking = True)
 
-    bowler = await getBowler(interaction, discord)
+    bowler = await getBowler(interaction, discord, alreadyDeferred = True)
 
     if bowler is None:
         await interaction.followup.send("No such profile exists.")
@@ -489,7 +492,10 @@ async def assign(interaction: discord.Interaction, discord: discord.Member, team
 
     await interaction.response.defer(thinking = True)
     
-    bowler = await getBowler(interaction, discord)
+    bowler = await getBowler(interaction, discord, alreadyDeferred = True)
+
+    if bowler is None:
+        return
 
     # cast to None since discord command only allows ints
     if team == 0:
